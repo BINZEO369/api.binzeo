@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/modules/identity/lib/supabase/server";
 import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
 import { completeGoogleAccount } from "@/modules/identity/lib/google-account";
+import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
 
 type GoogleUser = {
   id: string;
@@ -16,7 +17,7 @@ function safeNext(value: string | null) {
 }
 
 function errorRedirect(req: NextRequest, code: string) {
-  return NextResponse.redirect(new URL(`/signin?error=${encodeURIComponent(code)}`, req.url));
+  return NextResponse.redirect(new URL(`/signin?error=${encodeURIComponent(code)}`, getPublicSiteUrl(req.headers)));
 }
 
 function envValue(value: string | undefined) {
@@ -59,12 +60,16 @@ async function findOrCreateUser(email: string, metadata: Record<string, unknown>
 }
 
 export async function GET(req: NextRequest) {
+  const authOrigin = getPublicSiteUrl(req.headers);
   const code = req.nextUrl.searchParams.get("code");
   const returnedState = req.nextUrl.searchParams.get("state");
   const oauthError = req.nextUrl.searchParams.get("error");
   const stateCookie = req.cookies.get("binzeo_google_oauth_state")?.value;
   const codeVerifier = req.cookies.get("binzeo_google_oauth_verifier")?.value;
-  const redirectUri = new URL("/api/auth/google/callback", req.url).toString();
+  const expectedRedirectUri = new URL("/api/auth/google/callback", authOrigin).toString();
+  const configuredRedirectUri = envValue(process.env.GOOGLE_REDIRECT_URI);
+  const redirectUri = configuredRedirectUri ? new URL(configuredRedirectUri).toString() : expectedRedirectUri;
+  if (redirectUri !== expectedRedirectUri) return errorRedirect(req, "google_redirect_mismatch");
 
   if (oauthError) return errorRedirect(req, `google_${oauthError}`);
   if (!code || !returnedState || !stateCookie || !codeVerifier) return errorRedirect(req, "google_invalid_callback");
@@ -110,7 +115,7 @@ export async function GET(req: NextRequest) {
     });
 
     const admin = getSupabaseAdmin();
-    const redirectTo = new URL(`/api/auth/callback?next=${encodeURIComponent(next)}`, req.url).toString();
+    const redirectTo = new URL(`/api/auth/callback?next=${encodeURIComponent(next)}`, authOrigin).toString();
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "magiclink",
       email: googleUser.email,
@@ -125,7 +130,7 @@ export async function GET(req: NextRequest) {
       const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({ token_hash: hashedToken, type: "email" });
       if (!sessionError && sessionData.session && sessionData.user?.id === user.id) {
         await completeGoogleAccount(sessionData.user, req);
-        const response = NextResponse.redirect(new URL(next, req.url));
+        const response = NextResponse.redirect(new URL(next, authOrigin));
         response.cookies.delete("binzeo_google_oauth_state");
         response.cookies.delete("binzeo_google_oauth_verifier");
         return response;

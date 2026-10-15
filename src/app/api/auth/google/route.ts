@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
 
 function safeNext(value: string | null) {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
@@ -7,11 +8,15 @@ function safeNext(value: string | null) {
 
 export async function GET(req: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim().replace(/^['"]|['"]$/g, "");
-  // Keep the authorization and token exchange on the exact same production URI.
-  // A stale GOOGLE_REDIRECT_URI is a common cause of Google's invalid_grant error.
-  const redirectUri = new URL("/api/auth/google/callback", req.url).toString();
+  const authOrigin = getPublicSiteUrl(req.headers);
+  const expectedRedirectUri = new URL("/api/auth/google/callback", authOrigin).toString();
+  const configuredRedirectUri = process.env.GOOGLE_REDIRECT_URI?.trim();
+  const redirectUri = configuredRedirectUri ? new URL(configuredRedirectUri).toString() : expectedRedirectUri;
+  if (redirectUri !== expectedRedirectUri) {
+    return NextResponse.redirect(new URL("/signin?error=google_redirect_mismatch", authOrigin));
+  }
   if (!clientId) {
-    return NextResponse.redirect(new URL("/signin?error=google_not_configured", req.url));
+    return NextResponse.redirect(new URL("/signin?error=google_not_configured", authOrigin));
   }
 
   const state = randomBytes(32).toString("base64url");

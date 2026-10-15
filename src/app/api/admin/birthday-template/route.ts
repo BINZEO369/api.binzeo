@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getAdminServiceContext } from "@/modules/admin/lib/admin";
 import { fail, ok } from "@/modules/identity/lib/api/response";
 
 type ImageItem = { url: string; position: string };
@@ -20,20 +20,6 @@ const defaults = {
   is_default: true,
 };
 
-async function getContext(request: NextRequest) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return null;
-  const admin = getSupabaseAdmin();
-  const { data: auth } = await admin.auth.getUser(token);
-  if (!auth.user) return null;
-  const { data: access } = await admin.from("admin_access").select("roles,permissions,is_active").eq("user_id", auth.user.id).maybeSingle();
-  if (!access?.is_active) return null;
-  const roles = Array.isArray(access.roles) ? access.roles : [];
-  const permissions = Array.isArray(access.permissions) ? access.permissions : [];
-  if (!roles.includes("super_admin") && !permissions.includes("marketing.send")) return null;
-  return { admin, user: auth.user };
-}
-
 function normalizeImages(value: unknown): ImageItem[] {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 8).flatMap((item) => {
@@ -46,7 +32,7 @@ function normalizeImages(value: unknown): ImageItem[] {
 }
 
 export async function GET(request: NextRequest) {
-  const context = await getContext(request);
+  const context = await getAdminServiceContext(request, "marketing.send");
   if (!context) return fail("Birthday template permission required", 403, "BIRTHDAY_TEMPLATE_FORBIDDEN");
   const { data, error } = await context.admin.from("email_templates").select("id,name,template_type,theme,subject,preview_text,headline,message,button_label,button_url,images,is_active,created_by,created_at,updated_at").eq("template_type", "birthday").eq("is_active", true).order("updated_at", { ascending: false }).limit(1).maybeSingle();
   if (error) return fail(error.message, 500, "BIRTHDAY_TEMPLATE_LOAD_FAILED");
@@ -54,7 +40,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const context = await getContext(request);
+  const context = await getAdminServiceContext(request, "marketing.send");
   if (!context) return fail("Birthday template permission required", 403, "BIRTHDAY_TEMPLATE_FORBIDDEN");
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const template = {

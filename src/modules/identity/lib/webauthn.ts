@@ -1,6 +1,8 @@
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
 function forwardedOrigin(req: Request) {
+  const configuredOrigin = process.env.AUTH_APP_URL?.trim();
+  if (configuredOrigin) return new URL(configuredOrigin).origin;
   const forwardedHost = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
   if (!forwardedHost) return new URL(req.url).origin;
   const forwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https";

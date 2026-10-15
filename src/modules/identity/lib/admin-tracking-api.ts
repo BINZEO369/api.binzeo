@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminApiContext } from "@/modules/admin/lib/admin";
 import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
 import { fail } from "@/modules/identity/lib/api/response";
 import {
@@ -22,7 +23,7 @@ type TrackingAuthorization =
 
 export function noStore<T extends NextResponse>(response: T): T {
   response.headers.set("Cache-Control", "private, no-store, max-age=0");
-  response.headers.set("Vary", "Authorization");
+  response.headers.set("Vary", "Authorization, Cookie");
   return response;
 }
 
@@ -40,8 +41,8 @@ export async function authorizeTrackingRequest(
     return deny("Unknown tracking table", 404, "TRACKING_TABLE_NOT_FOUND");
   }
 
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return deny("Authentication required", 401, "UNAUTHORIZED");
+  const session = await getAdminApiContext(request);
+  if (!session.user || !session.access) return deny("Authentication required", 401, "UNAUTHORIZED");
 
   let admin: ReturnType<typeof getSupabaseAdmin>;
   try {
@@ -51,20 +52,7 @@ export async function authorizeTrackingRequest(
     return deny("Tracking API is not configured", 500, "TRACKING_API_UNAVAILABLE");
   }
 
-  const { data: auth, error: authError } = await admin.auth.getUser(token);
-  if (authError || !auth.user) return deny("Authentication required", 401, "UNAUTHORIZED");
-
-  const { data: access, error: accessError } = await (admin.from("admin_access") as any)
-    .select("roles,is_active")
-    .eq("user_id", auth.user.id)
-    .maybeSingle();
-  if (accessError) {
-    console.error("[TRACKING_API_ACCESS_LOOKUP_ERROR]", accessError);
-    return deny("Could not verify tracking-data access", 500, "TRACKING_ACCESS_CHECK_FAILED");
-  }
-  if (!access?.is_active) return deny("Tracking-data access is restricted", 403, "TRACKING_FORBIDDEN");
-
-  const roles: unknown[] = Array.isArray(access.roles) ? access.roles : [];
+  const roles: unknown[] = session.access.roles;
   const isSuperAdmin = roles.includes("super_admin");
   const isAnalytics = roles.includes("analytics");
   if (!isSuperAdmin && !isAnalytics) {
@@ -84,7 +72,7 @@ export async function authorizeTrackingRequest(
   }
 
   return {
-    context: { admin, userId: auth.user.id, role: isSuperAdmin ? "super_admin" : "analytics" },
+    context: { admin, userId: session.user.id, role: isSuperAdmin ? "super_admin" : "analytics" },
     response: null,
   };
 }

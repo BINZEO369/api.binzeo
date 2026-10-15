@@ -1,24 +1,11 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/modules/identity/lib/api/response";
 import { uploadMarketingImage } from "@/modules/identity/lib/imagekit";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-
-async function isAllowed(request: NextRequest) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return false;
-  const admin = getSupabaseAdmin();
-  const { data: auth } = await admin.auth.getUser(token);
-  if (!auth.user) return false;
-  const { data: access } = await admin.from("admin_access").select("roles,permissions,is_active").eq("user_id", auth.user.id).maybeSingle();
-  if (!access?.is_active) return false;
-  const roles = Array.isArray(access.roles) ? access.roles : [];
-  const permissions = Array.isArray(access.permissions) ? access.permissions : [];
-  return roles.includes("super_admin") || permissions.includes("marketing.send");
-}
+import { getAdminServiceContext } from "@/modules/admin/lib/admin";
 
 const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 export async function POST(request: NextRequest) {
-  if (!await isAllowed(request)) return fail("Marketing email permission required", 403, "MARKETING_SEND_REQUIRED");
+  if (!await getAdminServiceContext(request, "marketing.send")) return fail("Marketing email permission required", 403, "MARKETING_SEND_REQUIRED");
   const formData = await request.formData();
   const file = formData.get("file");
   if (!(file instanceof File)) return fail("Please select an image file", 422, "IMAGE_REQUIRED");

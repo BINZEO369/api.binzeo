@@ -177,6 +177,40 @@
         }
       }
     },
+    "/v1/admin/auth-users": {
+      "get": {
+        "operationId": "get_v1_admin_auth_users",
+        "tags": [
+          "admin"
+        ],
+        "summary": "GET /v1/admin/auth-users",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
     "/v1/admin/birthday-template": {
       "get": {
         "operationId": "get_v1_admin_birthday_template",

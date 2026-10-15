@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getAdminServiceContext } from "@/modules/admin/lib/admin";
 import { fail, ok } from "@/modules/identity/lib/api/response";
 import { parseContentBlocks, renderEmailTemplateHtml } from "@/modules/identity/lib/email/template-renderer";
 import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/modules/identity/lib/email/transporter";
@@ -25,20 +26,6 @@ type OccasionProfile = { id: string; display_name: string | null; marketing_emai
 
 const templateFields = "id,name,template_type,theme,subject,preview_text,headline,message,button_label,button_url,buttons,images,content_blocks";
 
-async function getContext(request: NextRequest) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return null;
-  const admin = getSupabaseAdmin();
-  const { data: auth } = await admin.auth.getUser(token);
-  if (!auth.user) return null;
-  const { data: access } = await admin.from("admin_access").select("roles,permissions,is_active").eq("user_id", auth.user.id).maybeSingle();
-  if (!access?.is_active) return null;
-  const roles = Array.isArray(access.roles) ? access.roles : [];
-  const permissions = Array.isArray(access.permissions) ? access.permissions : [];
-  if (!roles.includes("super_admin") && !permissions.includes("marketing.send")) return null;
-  return { admin, user: auth.user };
-}
-
 async function getAuthEmails(admin: ReturnType<typeof getSupabaseAdmin>, profiles: OccasionProfile[]) {
   const emails = await getAuthEmailMap(admin, profiles.map((profile) => profile.id));
   return profiles.flatMap((profile) => {
@@ -48,7 +35,7 @@ async function getAuthEmails(admin: ReturnType<typeof getSupabaseAdmin>, profile
 }
 
 export async function GET(request: NextRequest) {
-  const context = await getContext(request);
+  const context = await getAdminServiceContext(request, "marketing.send");
   if (!context) return fail("Occasion email permission required", 403, "OCCASION_EMAIL_FORBIDDEN");
   try {
     const [{ data: templateRows, error: templateError }, { data: profileRows, error: profileError }, { data: deliveryRows, error: deliveryError }] = await Promise.all([
@@ -69,7 +56,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const context = await getContext(request);
+  const context = await getAdminServiceContext(request, "marketing.send");
   if (!context) return fail("Occasion email permission required", 403, "OCCASION_EMAIL_FORBIDDEN");
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const userId = typeof body.user_id === "string" ? body.user_id : "";

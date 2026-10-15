@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/modules/identity/lib/supabase/server";
+import { getAdminApiContext, hasAdminPermission } from "@/modules/admin/lib/admin";
 import { ok, fail } from "@/modules/identity/lib/api/response";
 
 type AccountRow = {
@@ -14,9 +14,12 @@ type AccountRow = {
   updated_at: string;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
+    const context = await getAdminApiContext(request);
+    if (!context.user || !context.access) return fail("An active admin session is required", 401, "ADMIN_REQUIRED");
+    if (!hasAdminPermission(context.access, "users.read")) return fail("User read permission required", 403, "USERS_READ_REQUIRED");
+    const supabase = context.supabase;
     const { data, error } = await supabase.rpc("get_admin_account_statuses");
     if (error) return fail("Admin access required", 403, "ADMIN_ACCESS_REQUIRED");
 
@@ -41,6 +44,9 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const context = await getAdminApiContext(req);
+    if (!context.user || !context.access) return fail("An active admin session is required", 401, "ADMIN_REQUIRED");
+    if (!hasAdminPermission(context.access, "users.manage")) return fail("User management permission required", 403, "USERS_MANAGE_REQUIRED");
     const body = await req.json();
     const targetUserId = body?.user_id;
     const status = body?.status;
@@ -53,7 +59,7 @@ export async function PATCH(req: NextRequest) {
       return fail("Invalid user_id or account status", 422, "VALIDATION_ERROR");
     }
 
-    const supabase = await createClient();
+    const supabase = context.supabase;
     const { data, error } = await supabase.rpc("admin_set_account_status", {
       target_user_id: targetUserId,
       new_status: status,

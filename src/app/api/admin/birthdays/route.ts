@@ -1,24 +1,11 @@
 import { NextRequest } from "next/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getAdminServiceContext } from "@/modules/admin/lib/admin";
 import { fail, ok } from "@/modules/identity/lib/api/response";
 import { calculateAge } from "@/modules/identity/lib/birthday";
 import { getAuthEmailMap } from "@/modules/identity/lib/admin-email-audience";
 
-async function getContext(request: NextRequest) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return null;
-  const admin = getSupabaseAdmin();
-  const { data: auth } = await admin.auth.getUser(token);
-  if (!auth.user) return null;
-  const { data: access } = await admin.from("admin_access").select("roles,permissions,is_active").eq("user_id", auth.user.id).maybeSingle();
-  if (!access?.is_active) return null;
-  const roles = Array.isArray(access.roles) ? access.roles : [];
-  const permissions = Array.isArray(access.permissions) ? access.permissions : [];
-  return roles.includes("super_admin") || permissions.includes("marketing.send") ? { admin } : null;
-}
-
 export async function GET(request: NextRequest) {
-  const context = await getContext(request);
+  const context = await getAdminServiceContext(request, "marketing.send");
   if (!context) return fail("Marketing email permission required", 403, "MARKETING_SEND_REQUIRED");
   const year = new Date().getUTCFullYear();
   const today = new Date();

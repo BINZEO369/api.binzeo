@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getAdminServiceContext } from "@/modules/admin/lib/admin";
 import { fail, ok } from "@/modules/identity/lib/api/response";
 import { parseContentBlocks, type EmailContentBlock } from "@/modules/identity/lib/email/template-renderer";
 
@@ -23,17 +23,7 @@ const defaultTemplate = {
 };
 
 async function context(request: NextRequest) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return null;
-  const admin = getSupabaseAdmin();
-  const { data: auth } = await admin.auth.getUser(token);
-  if (!auth.user) return null;
-  const { data: access } = await admin.from("admin_access").select("roles,permissions,is_active").eq("user_id", auth.user.id).maybeSingle();
-  if (!access?.is_active) return null;
-  const roles = Array.isArray(access.roles) ? access.roles : [];
-  const permissions = Array.isArray(access.permissions) ? access.permissions : [];
-  if (!roles.includes("super_admin") && !permissions.includes("marketing.send")) return null;
-  return { admin, user: auth.user };
+  return getAdminServiceContext(request, "marketing.send");
 }
 
 function images(value: unknown) {

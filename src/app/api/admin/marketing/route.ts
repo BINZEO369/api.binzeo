@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getAdminServiceContext } from "@/modules/admin/lib/admin";
 import { ok, fail } from "@/modules/identity/lib/api/response";
 import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/modules/identity/lib/email/transporter";
 import { renderEmailLayout } from "@/modules/identity/lib/email/layout";
@@ -35,18 +36,6 @@ function buildEmail(input: { siteUrl: string; template: MarketingTemplate; prehe
   const body = `<p style="margin:0 0 22px;color:${ink};font-size:16px;line-height:1.5;font-weight:700;">Hey ${escape(name)},</p>${leadImage}<div style="color:${ink};font-size:14px;line-height:1.7;white-space:pre-wrap">${escape(message).replace(/\n/g, "<br>")}</div>${renderImages("after_message")}${renderImages("before_button")}${button}`;
   return renderEmailLayout({ siteUrl: input.siteUrl, eyebrow: isBirthday ? "BINZEO · BIRTHDAY" : "BINZEO · NEWS", title: escape(input.headline), description: escape(input.preheader), body, showSecurityDetails: false, theme: input.theme, footerNote: `You are receiving this email because you allowed Marketing emails in your BINZEO notification preferences. <a href="${escape(input.unsubscribe_url)}" style="color:${ink};text-decoration:underline;">Unsubscribe from marketing emails</a>` });
 }
-async function getContext(request: NextRequest) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return null;
-  const admin = getSupabaseAdmin();
-  const { data: auth } = await admin.auth.getUser(token);
-  if (!auth.user) return null;
-  const { data: access } = await admin.from("admin_access").select("roles,permissions,is_active").eq("user_id", auth.user.id).maybeSingle();
-  if (!access?.is_active) return null;
-  const roles = Array.isArray(access.roles) ? access.roles : [];
-  const permissions = Array.isArray(access.permissions) ? access.permissions : [];
-  return roles.includes("super_admin") || permissions.includes("marketing.send") ? { admin, user: auth.user } : null;
-}
 async function getRecipients(admin: ReturnType<typeof getSupabaseAdmin>, teamIds: string[] = [], selectedUserIds: string[] = []): Promise<EligibleRecipient[]> {
   let userIds: string[] | null = null;
   if (selectedUserIds.length) {
@@ -70,7 +59,7 @@ async function getRecipients(admin: ReturnType<typeof getSupabaseAdmin>, teamIds
   });
 }
 export async function GET(request: NextRequest) {
-  const context = await getContext(request);
+  const context = await getAdminServiceContext(request, "marketing.send");
   if (!context) return fail("Marketing email permission required", 403, "MARKETING_SEND_REQUIRED");
   try {
     const [{ data: teams }] = await Promise.all([
@@ -81,7 +70,7 @@ export async function GET(request: NextRequest) {
   } catch (error) { return fail(error instanceof Error ? error.message : "Could not load marketing settings", 500, "MARKETING_SETTINGS_FAILED"); }
 }
 export async function POST(request: NextRequest) {
-  const context = await getContext(request);
+  const context = await getAdminServiceContext(request, "marketing.send");
   if (!context) return fail("Marketing email permission required", 403, "MARKETING_SEND_REQUIRED");
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const subject = typeof body.subject === "string" ? body.subject.trim().slice(0, 180) : "";
