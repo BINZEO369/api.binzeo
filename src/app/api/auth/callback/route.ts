@@ -7,25 +7,27 @@ function safeNext(value: string | null) {
 }
 
 export async function GET(req: NextRequest) {
+  const authOrigin = getPublicSiteUrl(req.headers);
   const code = req.nextUrl.searchParams.get("code");
   const next = safeNext(req.nextUrl.searchParams.get("next"));
-  if (!code) return NextResponse.redirect(new URL("/signin?error=missing_code", req.url));
+  if (!code) return NextResponse.redirect(new URL("/signin?error=missing_code", authOrigin));
 
   try {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) return NextResponse.redirect(new URL(`/signin?error=${encodeURIComponent(error.message)}`, req.url));
+    if (error) return NextResponse.redirect(new URL(`/signin?error=${encodeURIComponent(error.message)}`, authOrigin));
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.redirect(new URL("/signin?error=callback_user_missing", req.url));
+    if (!user) return NextResponse.redirect(new URL("/signin?error=callback_user_missing", authOrigin));
 
     const metadata = user.user_metadata ?? {};
     const isGoogleUser = metadata.auth_provider === "google" || Boolean(metadata.google_sub);
     if (isGoogleUser) await completeGoogleAccount(user, req);
 
-    return NextResponse.redirect(new URL(next, req.url));
+    return NextResponse.redirect(new URL(next, authOrigin));
   } catch (err) {
     console.error("[CALLBACK_ERROR]", err);
-    return NextResponse.redirect(new URL("/signin?error=callback_failed", req.url));
+    return NextResponse.redirect(new URL("/signin?error=callback_failed", authOrigin));
   }
 }
+import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
