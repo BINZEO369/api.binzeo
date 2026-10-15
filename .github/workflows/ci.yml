@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run openapi:generate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          AUTH_SUPABASE_URL: https://example.supabase.co
+          AUTH_SUPABASE_ANON_KEY: ci-placeholder
+          API_ALLOWED_ORIGINS: https://auth-binzeo.vercel.app,https://admin-binzeo.vercel.app
+          API_ENVIRONMENT: preview

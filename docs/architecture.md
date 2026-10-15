@@ -1,0 +1,48 @@
+# Architecture Notes
+
+## Deployment shape
+
+Start with one Vercel-deployable TypeScript/Next.js service and strict module boundaries. Do not split into microservices before independent scaling, ownership, or failure isolation is demonstrated. This keeps operations manageable while adapters make future extraction possible.
+
+## Trust boundaries
+
+1. A browser `Origin`, project key, route name, or user-supplied database URL is not authentication.
+2. Identity is verified with Supabase Auth using a session cookie relayed by the first-party frontend BFF or a presented bearer access token.
+3. Account status and admin role/permission are checked server-side on protected operations.
+4. User-scoped queries preserve Supabase RLS. Privileged service-role queries are isolated in server-only modules and must follow explicit authorization.
+5. Registry entries map known project identifiers to server-side environment references. Clients cannot choose database endpoints.
+6. Secrets are provisioned only in the central API server environment; never in the registry, API response, browser bundle, logs, or Git.
+
+## Module ownership
+
+- `src/app/v1`: explicit versioned system endpoints and OpenAPI surface.
+- `src/app/api`: backend route adapters migrated from the existing auth/admin apps; canonical public paths are rewritten from `/v1`.
+- `src/modules/identity`: existing auth/account/security behavior and identity providers.
+- `src/modules/admin`: admin access/data helper contracts and server-owned table allowlists.
+- `src/modules/admin/privacy-analytics`: separate allowlisted privacy data tables and column projection.
+- `src/modules/projects`: typed project registry and future database adapters.
+- `src/lib/http`: request IDs, response/error contract.
+- `src/lib/security`: CORS, rate limits, request policy.
+- `src/lib/supabase`: user-scoped and privileged connections.
+- `src/lib/auth`: central token verification and PKCE SSO code handling.
+- `supabase/migrations`: reviewable schema changes; never auto-applied by build/deploy.
+
+## Frontend integration
+
+`auth.binzeo` and `admin.binzeo` remain separately deployed frontend applications. With `CENTRAL_API_ENABLED=false`, they retain existing local route and database fallbacks. When enabled, their `/api/*` requests rewrite to the central API; server-rendered pages forward the signed-in request cookie to fixed, server-configured `/v1/*` endpoints. The browser never receives the central API service-role key.
+
+The admin console’s data-table and privacy-analytics pages send only table identifiers and pagination to the API. The API independently validates each identifier against its own allowlist, enforces permission/role checks, chooses the permitted column set, and applies bounded pagination. Dashboard summaries and user detail reads likewise execute on the central server.
+
+## Reliability and evolution
+
+- Keep API v1 contracts stable; use additive changes where possible. Breaking changes receive a new version and a migration window.
+- Use idempotency for retried operations that send mail or mutate user state.
+- Apply explicit timeouts and bounded pagination; do not fan out unbounded database work.
+- Health responses disclose liveness only. Readiness checks must not reveal secrets or internal hostnames.
+- Include request IDs in client errors and structured logs while redacting credentials, OTPs, passkey challenges, and unnecessary personal data.
+- Keep production cutover reversible: feature-flagged frontend rewrites remain off until the central API is deployed and verified. Existing API behavior is the fallback.
+- Migrate scheduled jobs once; never run old and central cron paths simultaneously.
+
+## Current integrations
+
+`auth` and `admin` are client/application registrations sharing the current identity Supabase reference. They are not separate database projects. The admin frontend's API files that only proxied to `auth.binzeo` are consolidated onto the single identity/admin handler. New product integrations receive a distinct allowlisted adapter and environment secret reference; no client may specify a database URL or service key.
