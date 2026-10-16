@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { getAdminApiContext, hasAdminPermission } from "@/modules/admin/lib/admin";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { getAdminApiContext, hasAdminPermission } from "@/admin/binzeo/lib/admin";
+import { ok, fail } from "@/user/auth/lib/api/response";
 
 type AccountRow = {
   user_id: string;

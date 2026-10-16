@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 import { isIP } from "node:net";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { loginSchema } from "@/modules/identity/lib/validators/auth";
-import { requestIp, resolveRequestLocation } from "@/modules/identity/lib/request-location";
-import { upsertUserDevice } from "@/modules/identity/lib/device-tracking";
-import { ok, fail } from "@/modules/identity/lib/api/response";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/modules/identity/lib/two-factor/service";
-import { syncJabiyenCustomer } from "@/projects/jabiyen/customer-sync";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { loginSchema } from "@/user/auth/lib/validators/auth";
+import { requestIp, resolveRequestLocation } from "@/user/auth/lib/request-location";
+import { upsertUserDevice } from "@/user/auth/lib/device-tracking";
+import { ok, fail } from "@/user/auth/lib/api/response";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/user/auth/lib/two-factor/service";
+import { syncJabiyenCustomer } from "@/user/jabiyen/customer-sync";
 
 export async function POST(req: NextRequest) {
   try {

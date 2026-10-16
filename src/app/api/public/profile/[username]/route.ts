@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { normalizeUsername } from "@/modules/identity/lib/username";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { normalizeUsername } from "@/user/auth/lib/username";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ username: string }> }) {
   try {

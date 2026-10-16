@@ -1,6 +1,6 @@
-import { getAdminApiContext, hasAdminPermission } from "@/modules/admin/lib/admin";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { fail, ok } from "@/modules/admin/lib/api/response";
+import { getAdminApiContext, hasAdminPermission } from "@/admin/binzeo/lib/admin";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { fail, ok } from "@/admin/binzeo/lib/api/response";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 100;

@@ -1,6 +1,6 @@
-import { buildPasswordChangedEmail, EMAIL_FROM, transporter } from "@/modules/identity/lib/email/transporter";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import type { EmailSecurityContext } from "@/modules/identity/lib/email/layout";
+import { buildPasswordChangedEmail, EMAIL_FROM, transporter } from "@/user/auth/lib/email/transporter";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import type { EmailSecurityContext } from "@/user/auth/lib/email/layout";
 
 type ChangeEvent = {
   id: string;

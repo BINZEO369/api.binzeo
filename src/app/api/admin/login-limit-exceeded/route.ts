@@ -1,5 +1,5 @@
-import { getAdminApiContext, hasAdminPermission } from "@/modules/admin/lib/admin";
-import { fail, ok } from "@/modules/identity/lib/api/response";
+import { getAdminApiContext, hasAdminPermission } from "@/admin/binzeo/lib/admin";
+import { fail, ok } from "@/user/auth/lib/api/response";
 
 export async function GET(request: Request) {
   try {

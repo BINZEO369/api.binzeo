@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { getAdminServiceContext } from "@/modules/admin/lib/admin";
-import { fail, ok } from "@/modules/identity/lib/api/response";
+import { getAdminServiceContext } from "@/admin/binzeo/lib/admin";
+import { fail, ok } from "@/user/auth/lib/api/response";
 
 type ImageItem = { url: string; position: string };
 const themes = ["dark", "light"] as const;

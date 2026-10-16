@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 
 export function validateBirthDate(value: unknown) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Enter a valid date of birth.";

@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { collectPrivacyVisitorMetadata } from "@/modules/identity/lib/privacy-visitor-metadata";
-import { ANALYTICS_SESSION_COOKIE, ANALYTICS_SESSION_MAX_AGE_SECONDS, COOKIE_CONSENT_COOKIE, COOKIE_CONSENT_VERSION, allowPrivacyRequest, isSameOriginRequest, isUuid, parseConsentCookie } from "@/modules/identity/lib/privacy-consent";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { collectPrivacyVisitorMetadata } from "@/user/auth/lib/privacy-visitor-metadata";
+import { ANALYTICS_SESSION_COOKIE, ANALYTICS_SESSION_MAX_AGE_SECONDS, COOKIE_CONSENT_COOKIE, COOKIE_CONSENT_VERSION, allowPrivacyRequest, isSameOriginRequest, isUuid, parseConsentCookie } from "@/user/auth/lib/privacy-consent";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

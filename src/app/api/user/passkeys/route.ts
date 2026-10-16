@@ -1,8 +1,8 @@
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { ok, fail } from "@/user/auth/lib/api/response";
 import { NextRequest } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
-import { base64UrlFromBytea, webauthnConfig } from "@/modules/identity/lib/webauthn";
+import { base64UrlFromBytea, webauthnConfig } from "@/user/auth/lib/webauthn";
 
 export async function GET() {
   try {

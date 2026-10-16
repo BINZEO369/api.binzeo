@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { getAdminServiceContext } from "@/modules/admin/lib/admin";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { parseContentBlocks, type EmailContentBlock } from "@/modules/identity/lib/email/template-renderer";
+import { getAdminServiceContext } from "@/admin/binzeo/lib/admin";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { parseContentBlocks, type EmailContentBlock } from "@/user/auth/lib/email/template-renderer";
 
 const themes = ["dark", "light"] as const;
 const types = ["birthday", "marketing", "occasion"] as const;

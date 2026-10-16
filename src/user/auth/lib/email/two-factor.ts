@@ -1,6 +1,6 @@
-import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/modules/identity/lib/email/transporter";
-import { emailButton, emailCodeBlock, escapeEmailText, renderEmailLayout, type EmailSecurityContext } from "@/modules/identity/lib/email/layout";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/user/auth/lib/email/transporter";
+import { emailButton, emailCodeBlock, escapeEmailText, renderEmailLayout, type EmailSecurityContext } from "@/user/auth/lib/email/layout";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 
 export function buildTwoFactorLoginEmail(code: string, expiresInSeconds: number, siteUrl: string, context?: EmailSecurityContext) {
   return {

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { ok, fail } from "@/modules/identity/lib/api/response";
-import { deleteProfileImage, uploadProfileImage } from "@/modules/identity/lib/imagekit";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { ok, fail } from "@/user/auth/lib/api/response";
+import { deleteProfileImage, uploadProfileImage } from "@/user/auth/lib/imagekit";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);

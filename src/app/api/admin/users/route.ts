@@ -1,5 +1,5 @@
-import { getAdminApiContext, getAdminDataClient, hasAdminPermission } from "@/modules/admin/lib/admin";
-import { ok, fail } from "@/modules/admin/lib/api/response";
+import { getAdminApiContext, getAdminDataClient, hasAdminPermission } from "@/admin/binzeo/lib/admin";
+import { ok, fail } from "@/admin/binzeo/lib/api/response";
 
 export const dynamic = "force-dynamic";
 export async function GET(req: Request) {

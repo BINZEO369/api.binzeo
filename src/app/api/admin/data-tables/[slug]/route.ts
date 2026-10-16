@@ -1,6 +1,6 @@
-import { getAdminApiContext, getAdminDataClient, hasAdminPermission } from "@/modules/admin/lib/admin";
-import { getTableDefinition } from "@/modules/admin/data-tables";
-import { fail, ok } from "@/modules/admin/lib/api/response";
+import { getAdminApiContext, getAdminDataClient, hasAdminPermission } from "@/admin/binzeo/lib/admin";
+import { getTableDefinition } from "@/admin/binzeo/data-tables";
+import { fail, ok } from "@/admin/binzeo/lib/api/response";
 
 export const dynamic = "force-dynamic";
 

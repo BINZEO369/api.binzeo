@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminApiContext } from "@/modules/admin/lib/admin";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { fail } from "@/modules/identity/lib/api/response";
+import { getAdminApiContext } from "@/admin/binzeo/lib/admin";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { fail } from "@/user/auth/lib/api/response";
 import {
   isTrackingTable,
   TRACKING_APPEND_ONLY_TABLES,
   TRACKING_DELETABLE_TABLES,
   TRACKING_MUTABLE_TABLES,
   type TrackingTable,
-} from "@/modules/identity/lib/admin-tracking-schema";
+} from "@/user/auth/lib/admin-tracking-schema";
 
 export type TrackingOperation = "read" | "write" | "delete";
 export type TrackingContext = {

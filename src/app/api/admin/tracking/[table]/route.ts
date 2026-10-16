@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest } from "next/server";
-import { fail, ok } from "@/modules/identity/lib/api/response";
+import { fail, ok } from "@/user/auth/lib/api/response";
 import {
   authorizeTrackingRequest,
   isApiResponse,
@@ -8,13 +8,13 @@ import {
   parseBoundedInteger,
   parseJsonObject,
   recordTrackingMutation,
-} from "@/modules/identity/lib/admin-tracking-api";
+} from "@/user/auth/lib/admin-tracking-api";
 import {
   TRACKING_COLUMNS,
   TRACKING_SERVER_MANAGED_COLUMNS,
   isTrackingTable,
   type TrackingTable,
-} from "@/modules/identity/lib/admin-tracking-schema";
+} from "@/user/auth/lib/admin-tracking-schema";
 
 export const dynamic = "force-dynamic";
 

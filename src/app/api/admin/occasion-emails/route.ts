@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest } from "next/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { getAdminServiceContext } from "@/modules/admin/lib/admin";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { parseContentBlocks, renderEmailTemplateHtml } from "@/modules/identity/lib/email/template-renderer";
-import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/modules/identity/lib/email/transporter";
-import { getAuthEmailMap } from "@/modules/identity/lib/admin-email-audience";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { getAdminServiceContext } from "@/admin/binzeo/lib/admin";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { parseContentBlocks, renderEmailTemplateHtml } from "@/user/auth/lib/email/template-renderer";
+import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/user/auth/lib/email/transporter";
+import { getAuthEmailMap } from "@/user/auth/lib/admin-email-audience";
 
 type OccasionTemplate = {
   id: string;

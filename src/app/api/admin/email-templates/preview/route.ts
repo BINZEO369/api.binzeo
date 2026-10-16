@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
-import { getAdminServiceContext } from "@/modules/admin/lib/admin";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
-import { parseContentBlocks, renderEmailTemplateHtml } from "@/modules/identity/lib/email/template-renderer";
+import { getAdminServiceContext } from "@/admin/binzeo/lib/admin";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";
+import { parseContentBlocks, renderEmailTemplateHtml } from "@/user/auth/lib/email/template-renderer";
 
 const types = ["birthday", "marketing", "occasion"] as const;
 const themes = ["dark", "light"] as const;

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { isValidUsername, normalizeUsername, suggestUsernames, usernameExists } from "@/modules/identity/lib/username";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { isValidUsername, normalizeUsername, suggestUsernames, usernameExists } from "@/user/auth/lib/username";
 
 const schema = z.object({ username: z.string().trim().min(1).max(80) });
 

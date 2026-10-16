@@ -8,7 +8,7 @@ Central, versioned server-side API for the BINZEO ecosystem. `auth.binzeo` remai
 - `auth` and `admin` are registered UI clients. Their `/api/*` paths are unconditionally rewritten to this service; `CENTRAL_API_BASE_URL` is required at build/runtime.
 - Frontend repositories contain no local API route handlers, Supabase clients, service-role secrets or local-database fallback. If the Central API is unavailable or unconfigured, pages fail closed with HTTP 503 and API requests fail; neither frontend reconnects to Supabase independently.
 - This repository is the single source of truth for the shared Supabase schema and migrations. The frontend repositories contain no database migrations or server-side database scripts.
-- Multi-project metadata is held in `platform_projects`, `platform_clients`, `platform_provider_connections` and `platform_project_access`. The typed catalog in `src/modules/platform/registry.ts` maps enabled projects/providers to server-only environment-variable names without storing secret values in the database.
+- Multi-project metadata is held in `platform_projects`, `platform_clients`, `platform_provider_connections` and `platform_project_access`. The typed catalog in `src/shared/platform/registry.ts` maps enabled projects/providers to server-only environment-variable names without storing secret values in the database.
 - Authenticated server-rendered profile/dashboard reads and admin dashboard, user, Auth-user directory, deleted-email archive, audit, security, settings, table-browser, privacy-analytics, marketing, birthdays and occasion-email operations use the Central API exclusively.
 - Canonical public paths are `/v1/*`; legacy handler paths are internal rewrite targets. OpenAPI is generated from route handlers and served at `/v1/openapi`.
 
@@ -67,7 +67,7 @@ Deploy this repository as the dedicated `api.binzeo` Vercel project (Node.js 22)
 
 ## JABIYEN centralization
 
-JABIYEN Website and JABIYEN Admin no longer deploy local `api/index.js` servers. Their public content and admin CRUD requests are served by the Central API through a bounded project root at `src/projects/jabiyen`:
+JABIYEN Website and JABIYEN Admin no longer deploy local `api/index.js` servers. Their public content and admin CRUD requests are served by the Central API through bounded ownership namespaces at `src/admin/jabiyen` and `src/user/jabiyen`:
 
 - `/v1/projects/jabiyen/public/*` — canonical public JABIYEN catalog/content APIs
 - `/v1/projects/jabiyen/admin/*` — canonical authenticated JABIYEN admin CRUD APIs
@@ -75,27 +75,13 @@ JABIYEN Website and JABIYEN Admin no longer deploy local `api/index.js` servers.
 - `/api/jabiyen-admin/*` — authenticated JABIYEN admin CRUD APIs
 - `/v1/auth/*`, `/v1/user/*`, `/v1/admin/*` — Central BINZEO authentication, user and admin APIs
 
-The `/api/jabiyen-*` paths are compatibility aliases only; they are rewritten to the canonical Next.js route handlers. The project code is kept together rather than scattered across generic root files:
-
+The `/api/jabiyen-*` paths are compatibility aliases only; they are rewritten to the canonical Next.js route handlers. The source ownership boundaries are explicit:
 ```text
-src/projects/jabiyen/
-├── config/
-├── database/
-├── domain/
-├── server/
-│   ├── public-api.ts       # public composition root
-│   ├── public-context.ts   # public DB/helpers
-│   ├── catalog.ts
-│   ├── navigation.ts
-│   ├── content.ts
-│   ├── footer-home.ts
-│   ├── admin-api.ts        # admin composition root
-│   ├── admin-context.ts    # Central admin auth + DB
-│   ├── dashboard-hero.ts
-│   ├── products.ts
-│   ├── variants.ts
-│   └── express-adapter.ts  # temporary compatibility bridge
-└── customer-sync.ts
+src/admin/binzeo/       # Central BINZEO admin modules
+src/admin/jabiyen/      # JABIYEN admin/catalog/content handlers
+src/user/auth/          # Central Auth identity and security modules
+src/user/jabiyen/       # JABIYEN user/customer/database/domain modules
+src/shared/platform/    # cross-project registry and platform contracts
 ```
 
 The JABIYEN Supabase project remains a separate database. Only the Central API may access it. Add these Vercel environment variables to `api-binzeo` before deploying the gateway:

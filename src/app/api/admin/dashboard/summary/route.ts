@@ -1,5 +1,5 @@
-import { getAdminApiContext, getAdminDataClient } from "@/modules/admin/lib/admin";
-import { fail, ok } from "@/modules/admin/lib/api/response";
+import { getAdminApiContext, getAdminDataClient } from "@/admin/binzeo/lib/admin";
+import { fail, ok } from "@/admin/binzeo/lib/api/response";
 
 export const dynamic = "force-dynamic";
 const MAX_EVENTS = 10_000;

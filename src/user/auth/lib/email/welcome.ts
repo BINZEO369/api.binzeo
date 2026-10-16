@@ -1,11 +1,11 @@
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 import {
   buildWelcomeEmail,
   EMAIL_FROM,
   getPublicSiteUrl,
   transporter,
-} from "@/modules/identity/lib/email/transporter";
-import type { EmailSecurityContext } from "@/modules/identity/lib/email/layout";
+} from "@/user/auth/lib/email/transporter";
+import type { EmailSecurityContext } from "@/user/auth/lib/email/layout";
 
 const TEMPLATE_VERSION = "welcome-v1";
 

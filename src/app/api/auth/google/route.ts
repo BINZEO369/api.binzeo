@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
+import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";
 
 function safeNext(value: string | null) {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";

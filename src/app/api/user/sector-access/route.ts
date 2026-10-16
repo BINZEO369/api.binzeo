@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/modules/identity/lib/supabase/server";
+import { createClient } from "@/user/auth/lib/supabase/server";
 import { z } from "zod";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { ok, fail } from "@/user/auth/lib/api/response";
 
 const sectorAccessSchema = z.object({
   sector_id: z.string().uuid("Invalid sector ID"),

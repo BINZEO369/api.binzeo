@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getProject, publicProjectList, PROJECT_REGISTRY } from "@/modules/projects/registry";
+import { getProject, publicProjectList, PROJECT_REGISTRY } from "@/shared/platform/project-registry";
 
 describe("central project registry", () => {
   it("contains only the current auth and admin applications", () => {

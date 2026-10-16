@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { randomBytes, createHash } from "node:crypto";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { ok, fail } from "@/user/auth/lib/api/response";
 import { z } from "zod";
 
 const durationSchema = z.object({

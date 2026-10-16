@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { getAdminApiContext } from "@/modules/admin/lib/admin";
-import { createAdminClient } from "@/modules/admin/lib/supabase/admin";
-import { ok, fail } from "@/modules/admin/lib/api/response";
+import { getAdminApiContext } from "@/admin/binzeo/lib/admin";
+import { createAdminClient } from "@/admin/binzeo/lib/supabase/admin";
+import { ok, fail } from "@/admin/binzeo/lib/api/response";
 
 type Params = { params: Promise<{ id: string }> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

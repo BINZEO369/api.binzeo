@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
-import { EMAIL_FROM, transporter } from "@/modules/identity/lib/email/transporter";
-import { buildTwoFactorLoginEmail } from "@/modules/identity/lib/email/two-factor";
-import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import type { EmailSecurityContext } from "@/modules/identity/lib/email/layout";
+import { EMAIL_FROM, transporter } from "@/user/auth/lib/email/transporter";
+import { buildTwoFactorLoginEmail } from "@/user/auth/lib/email/two-factor";
+import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import type { EmailSecurityContext } from "@/user/auth/lib/email/layout";
 
 export async function isTwoFactorEnabled(userId: string) {
   const admin = getSupabaseAdmin();

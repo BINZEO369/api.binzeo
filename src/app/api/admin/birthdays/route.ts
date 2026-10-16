@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
-import { getAdminServiceContext } from "@/modules/admin/lib/admin";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { calculateAge } from "@/modules/identity/lib/birthday";
-import { getAuthEmailMap } from "@/modules/identity/lib/admin-email-audience";
+import { getAdminServiceContext } from "@/admin/binzeo/lib/admin";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { calculateAge } from "@/user/auth/lib/birthday";
+import { getAuthEmailMap } from "@/user/auth/lib/admin-email-audience";
 
 export async function GET(request: NextRequest) {
   const context = await getAdminServiceContext(request, "marketing.send");

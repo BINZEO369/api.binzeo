@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { webauthnConfig } from "@/modules/identity/lib/webauthn";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { webauthnConfig } from "@/user/auth/lib/webauthn";
+import { ok, fail } from "@/user/auth/lib/api/response";
 
 export async function POST(req: NextRequest) {
   try {

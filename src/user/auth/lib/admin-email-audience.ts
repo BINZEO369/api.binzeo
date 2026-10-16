@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof getSupabaseAdmin>;
 

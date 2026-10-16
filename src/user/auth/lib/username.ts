@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 
 export const USERNAME_PATTERN = /^[a-z][a-z0-9_]{2,29}$/;
 const RESERVED = new Set(["admin", "api", "auth", "dashboard", "signin", "signup", "support", "security", "help", "www"]);

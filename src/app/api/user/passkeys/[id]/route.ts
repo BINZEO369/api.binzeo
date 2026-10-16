@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { ok, fail } from "@/user/auth/lib/api/response";
 import { z } from "zod";
 
 const idSchema = z.string().uuid();

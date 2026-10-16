@@ -1,6 +1,6 @@
-import { getAdminApiContext, hasAdminPermission } from "@/modules/admin/lib/admin";
-import { createAdminClient } from "@/modules/admin/lib/supabase/admin";
-import { fail, ok } from "@/modules/admin/lib/api/response";
+import { getAdminApiContext, hasAdminPermission } from "@/admin/binzeo/lib/admin";
+import { createAdminClient } from "@/admin/binzeo/lib/supabase/admin";
+import { fail, ok } from "@/admin/binzeo/lib/api/response";
 
 export const dynamic = "force-dynamic";
 export async function GET() {

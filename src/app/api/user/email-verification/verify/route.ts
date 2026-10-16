@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { ok, fail } from "@/modules/identity/lib/api/response";
-import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
-import { sendWelcomeEmailOnce } from "@/modules/identity/lib/email/welcome";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { resolveRequestLocation } from "@/modules/identity/lib/request-location";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { ok, fail } from "@/user/auth/lib/api/response";
+import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";
+import { sendWelcomeEmailOnce } from "@/user/auth/lib/email/welcome";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { resolveRequestLocation } from "@/user/auth/lib/request-location";
 
 export async function POST(req: NextRequest) {
   try {

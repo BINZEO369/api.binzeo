@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 100;

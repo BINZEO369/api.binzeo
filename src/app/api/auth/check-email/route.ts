@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { emailAlreadyExists, normalizeEmail } from "@/modules/identity/lib/auth-email";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { emailAlreadyExists, normalizeEmail } from "@/user/auth/lib/auth-email";
+import { ok, fail } from "@/user/auth/lib/api/response";
 
 const schema = z.object({
   email: z.string().trim().email("Please enter a valid email address").max(254),

@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { upsertUserDevice } from "@/modules/identity/lib/device-tracking";
-import { ok, fail } from "@/modules/identity/lib/api/response";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { isTwoFactorEnabled } from "@/modules/identity/lib/two-factor/service";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { upsertUserDevice } from "@/user/auth/lib/device-tracking";
+import { ok, fail } from "@/user/auth/lib/api/response";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { isTwoFactorEnabled } from "@/user/auth/lib/two-factor/service";
 
 const tokenSchema = z.object({ token: z.string().min(20).max(256) });
 

@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { getPublicSiteUrl, buildPasswordResetEmail, EMAIL_FROM, transporter } from "@/modules/identity/lib/email/transporter";
-import { markPasswordOtpEmail } from "@/modules/identity/lib/password-security/service";
-import { PASSWORD_OTP_EXPIRY_SECONDS } from "@/modules/identity/lib/password-security/config";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { resolveRequestLocation } from "@/modules/identity/lib/request-location";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { getPublicSiteUrl, buildPasswordResetEmail, EMAIL_FROM, transporter } from "@/user/auth/lib/email/transporter";
+import { markPasswordOtpEmail } from "@/user/auth/lib/password-security/service";
+import { PASSWORD_OTP_EXPIRY_SECONDS } from "@/user/auth/lib/password-security/config";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { resolveRequestLocation } from "@/user/auth/lib/request-location";
 
 function rateLimitFailure(message: string) {
   const lower = message.toLowerCase();

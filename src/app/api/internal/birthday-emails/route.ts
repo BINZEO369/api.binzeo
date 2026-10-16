@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { buildBirthdayEmail } from "@/modules/identity/lib/email/birthday";
-import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/modules/identity/lib/email/transporter";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { buildBirthdayEmail } from "@/user/auth/lib/email/birthday";
+import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/user/auth/lib/email/transporter";
 
 function authorized(request: NextRequest) {
   const secret = process.env.CRON_SECRET?.trim();

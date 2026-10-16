@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
-import { sendPasswordChangedEmailOnce } from "@/modules/identity/lib/password-security/service";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { resolveRequestLocation } from "@/modules/identity/lib/request-location";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";
+import { sendPasswordChangedEmailOnce } from "@/user/auth/lib/password-security/service";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { resolveRequestLocation } from "@/user/auth/lib/request-location";
 
 const schema = z.object({
   challenge_id: z.string().uuid(),

@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { getPublicSiteUrl, buildPasswordResetEmail, EMAIL_FROM, transporter } from "@/modules/identity/lib/email/transporter";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { markPasswordOtpEmail } from "@/modules/identity/lib/password-security/service";
-import { PASSWORD_OTP_EXPIRY_SECONDS } from "@/modules/identity/lib/password-security/config";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { resolveRequestLocation } from "@/modules/identity/lib/request-location";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { getPublicSiteUrl, buildPasswordResetEmail, EMAIL_FROM, transporter } from "@/user/auth/lib/email/transporter";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { markPasswordOtpEmail } from "@/user/auth/lib/password-security/service";
+import { PASSWORD_OTP_EXPIRY_SECONDS } from "@/user/auth/lib/password-security/config";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { resolveRequestLocation } from "@/user/auth/lib/request-location";
 
 const schema = z.object({ email: z.string().trim().email().max(320) });
 

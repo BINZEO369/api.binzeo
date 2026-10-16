@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { completeGoogleAccount } from "@/modules/identity/lib/google-account";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { completeGoogleAccount } from "@/user/auth/lib/google-account";
 
 function safeNext(value: string | null) {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
@@ -30,4 +30,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/signin?error=callback_failed", authOrigin));
   }
 }
-import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
+import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";

@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { ok, fail } from "@/user/auth/lib/api/response";
 
 const schema = z.object({ enabled: z.boolean() });
 

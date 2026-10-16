@@ -4,7 +4,7 @@ import {
   getPlatformProject,
   getProviderSecretRefs,
   publicPlatformCatalog,
-} from "@/modules/platform/registry";
+} from "@/shared/platform/registry";
 
 describe("platform project catalog", () => {
   it("models BINZEO as a platform with frontend and admin clients", () => {

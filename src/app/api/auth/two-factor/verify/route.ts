@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { upsertUserDevice } from "@/modules/identity/lib/device-tracking";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { sendLoginNotification } from "@/modules/identity/lib/email/two-factor";
-import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
-import { resolveRequestLocation } from "@/modules/identity/lib/request-location";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { upsertUserDevice } from "@/user/auth/lib/device-tracking";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { sendLoginNotification } from "@/user/auth/lib/email/two-factor";
+import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";
+import { resolveRequestLocation } from "@/user/auth/lib/request-location";
+import { ok, fail } from "@/user/auth/lib/api/response";
 
 const schema = z.object({ challenge_id: z.string().uuid(), code: z.string().regex(/^\d{6}$/) });
 function requestIp(req: NextRequest) { return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "0.0.0.0"; }

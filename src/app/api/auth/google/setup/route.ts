@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { fail } from "@/modules/identity/lib/api/response";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { fail } from "@/user/auth/lib/api/response";
 
 export async function GET() {
   try {

@@ -1,4 +1,4 @@
-import { renderEmailLayout, escapeEmailText } from "@/modules/identity/lib/email/layout";
+import { renderEmailLayout, escapeEmailText } from "@/user/auth/lib/email/layout";
 
 type BirthdayImage = { url: string; position: string };
 type BirthdayTemplateContent = { subject?: string; preview_text?: string | null; headline?: string; message?: string; button_label?: string | null; button_url?: string | null; buttons?: { label: string; url: string }[]; theme?: "dark" | "light"; images?: BirthdayImage[] };

@@ -4,8 +4,8 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { authenticateBearerToken } from "@/lib/auth/identity";
 import { createUserScopedClient } from "@/lib/supabase/clients";
-import { createClient } from "@/modules/admin/lib/supabase/server";
-import { createAdminClient } from "@/modules/admin/lib/supabase/admin";
+import { createClient } from "@/admin/binzeo/lib/supabase/server";
+import { createAdminClient } from "@/admin/binzeo/lib/supabase/admin";
 
 export type AdminContext = {
   user: { id: string; email?: string };

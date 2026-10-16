@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { ok, fail } from "@/modules/identity/lib/api/response";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { ok, fail } from "@/user/auth/lib/api/response";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
 import { createUserScopedClient } from "@/lib/supabase/clients";
 
 export async function POST(req: NextRequest) {

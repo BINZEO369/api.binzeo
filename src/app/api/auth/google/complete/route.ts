@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { resolveRequestLocation } from "@/modules/identity/lib/request-location";
-import { upsertUserDevice } from "@/modules/identity/lib/device-tracking";
-import { upsertUserBirthday, validateBirthDate } from "@/modules/identity/lib/birthday";
-import { isValidUsername, normalizeUsername, usernameExists } from "@/modules/identity/lib/username";
-import { ok, fail } from "@/modules/identity/lib/api/response";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { syncJabiyenCustomer } from "@/projects/jabiyen/customer-sync";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { resolveRequestLocation } from "@/user/auth/lib/request-location";
+import { upsertUserDevice } from "@/user/auth/lib/device-tracking";
+import { upsertUserBirthday, validateBirthDate } from "@/user/auth/lib/birthday";
+import { isValidUsername, normalizeUsername, usernameExists } from "@/user/auth/lib/username";
+import { ok, fail } from "@/user/auth/lib/api/response";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { syncJabiyenCustomer } from "@/user/jabiyen/customer-sync";
 
 const requiredName = (minimum: number) => z.string().trim().min(minimum).max(80);
 

@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest } from "next/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { getAdminServiceContext } from "@/modules/admin/lib/admin";
-import { ok, fail } from "@/modules/identity/lib/api/response";
-import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/modules/identity/lib/email/transporter";
-import { renderEmailLayout } from "@/modules/identity/lib/email/layout";
-import { getAuthEmailMap } from "@/modules/identity/lib/admin-email-audience";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { getAdminServiceContext } from "@/admin/binzeo/lib/admin";
+import { ok, fail } from "@/user/auth/lib/api/response";
+import { EMAIL_FROM, getPublicSiteUrl, transporter } from "@/user/auth/lib/email/transporter";
+import { renderEmailLayout } from "@/user/auth/lib/email/layout";
+import { getAuthEmailMap } from "@/user/auth/lib/admin-email-audience";
 
 function escape(value: string) { return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char)); }
 async function prepareInlineImage(imageUrl: string, cid: string, filename: string) {

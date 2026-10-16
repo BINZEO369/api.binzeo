@@ -1,4 +1,4 @@
-import { escapeEmailText, renderEmailLayout } from "@/modules/identity/lib/email/layout";
+import { escapeEmailText, renderEmailLayout } from "@/user/auth/lib/email/layout";
 
 export type EmailAlignment = "left" | "center" | "right";
 export type EmailImageSize = "small" | "medium" | "large" | "banner";

@@ -2,16 +2,16 @@ import { NextRequest } from "next/server";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { z } from "zod";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { byteaFromBase64Url, webauthnConfig } from "@/modules/identity/lib/webauthn";
-import { upsertUserDevice } from "@/modules/identity/lib/device-tracking";
-import { ok, fail } from "@/modules/identity/lib/api/response";
-import { isTwoFactorEnabled } from "@/modules/identity/lib/two-factor/service";
-import { sendLoginNotification } from "@/modules/identity/lib/email/two-factor";
-import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
-import { resolveRequestLocation } from "@/modules/identity/lib/request-location";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { byteaFromBase64Url, webauthnConfig } from "@/user/auth/lib/webauthn";
+import { upsertUserDevice } from "@/user/auth/lib/device-tracking";
+import { ok, fail } from "@/user/auth/lib/api/response";
+import { isTwoFactorEnabled } from "@/user/auth/lib/two-factor/service";
+import { sendLoginNotification } from "@/user/auth/lib/email/two-factor";
+import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { resolveRequestLocation } from "@/user/auth/lib/request-location";
 
 const schema = z.object({ challenge_id: z.string().uuid(), challenge: z.string().min(16).max(512), response: z.unknown() });
 

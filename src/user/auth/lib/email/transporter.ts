@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { emailButton, emailCodeBlock, renderEmailLayout, type EmailSecurityContext } from "@/modules/identity/lib/email/layout";
+import { emailButton, emailCodeBlock, renderEmailLayout, type EmailSecurityContext } from "@/user/auth/lib/email/layout";
 
 export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,

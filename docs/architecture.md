@@ -17,11 +17,11 @@ Start with one Vercel-deployable TypeScript/Next.js service and strict module bo
 
 - `src/app/v1`: explicit versioned system endpoints and OpenAPI surface.
 - `src/app/api`: backend route adapters migrated from the existing auth/admin apps; canonical public paths are rewritten from `/v1`.
-- `src/modules/identity`: existing auth/account/security behavior and identity providers.
-- `src/modules/admin`: admin access/data helper contracts and server-owned table allowlists.
-- `src/modules/admin/privacy-analytics`: separate allowlisted privacy data tables and column projection.
-- `src/projects/<project-key>`: one bounded project root containing its config, database adapter, domain contract, customer integration and public/admin server handlers. Keep project internals together; split only when a domain becomes independently reusable or testable.
-- `src/modules/platform`: cross-project registry, clients, providers and project access rules.
+- `src/user/auth`: existing auth/account/security behavior and identity providers.
+- `src/admin/binzeo`: admin access/data helper contracts and server-owned table allowlists.
+- `src/admin/binzeo/privacy-analytics`: separate allowlisted privacy data tables and column projection.
+- `src/admin/<project-key>` and `src/user/<project-key>`: one bounded project root containing its config, database adapter, domain contract, customer integration and public/admin server handlers. Keep project internals together; split only when a domain becomes independently reusable or testable.
+- `src/shared/platform`: cross-project registry, clients, providers and project access rules.
 - `src/providers`: shared email, OAuth, storage and database provider clients used by every project.
 - `src/lib/http`: request IDs, response/error contract.
 - `src/lib/security`: CORS, rate limits, request policy.
@@ -33,13 +33,13 @@ Start with one Vercel-deployable TypeScript/Next.js service and strict module bo
 
 `auth.binzeo`, `admin.binzeo`, `JABIYEN-WEBSITE` and `JABIYEN-ADMIN` remain separately deployed frontend applications. Their `/api/*` requests rewrite to fixed central endpoints. The browser never receives a central or project database service-role key.
 
-JABIYEN is the first bounded project implementation:
+JABIYEN is the first bounded project implementation, split by ownership:
 
-- `src/projects/jabiyen/config` — project identity and public origins.
-- `src/projects/jabiyen/database` — public and service-role Supabase clients.
-- `src/projects/jabiyen/domain` — project-level contract and client ownership.
-- `src/projects/jabiyen/server` — public/admin composition roots, shared context and a small number of domain-sized handlers (catalog, navigation, content, products, variants, footer/home); no route-per-file explosion.
-- `src/projects/jabiyen/customer-sync.ts` — Central Auth to JABIYEN customer mirror.
+- `src/user/jabiyen/config` — project identity and public origins.
+- `src/user/jabiyen/database` — public and service-role Supabase clients.
+- `src/user/jabiyen/domain` — project-level contract and client ownership.
+- `src/admin/jabiyen` — public/admin composition roots, shared context and a small number of domain-sized handlers (catalog, navigation, content, products, variants, footer/home); no route-per-file explosion.
+- `src/user/jabiyen/customer-sync.ts` — Central Auth to JABIYEN customer mirror.
 - `/v1/projects/jabiyen/public/*` and `/v1/projects/jabiyen/admin/*` — canonical versioned routes.
 - `/api/jabiyen-public/*` and `/api/jabiyen-admin/*` — temporary compatibility aliases for existing frontends.
 

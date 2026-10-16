@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
-import { parseUserAgent } from "@/modules/identity/lib/device-tracking";
+import { parseUserAgent } from "@/user/auth/lib/device-tracking";
 
 type HeaderReader = { get(name: string): string | null };
 

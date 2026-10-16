@@ -2,7 +2,7 @@ import { isIP } from "node:net";
 import { z } from "zod";
 import { authenticateBearerToken } from "@/lib/auth/identity";
 import { createPrivilegedClient } from "@/lib/supabase/clients";
-import { requestIp } from "@/modules/identity/lib/request-location";
+import { requestIp } from "@/user/auth/lib/request-location";
 import { apiError, apiSuccess } from "@/lib/http/response";
 import { getRequestId } from "@/lib/http/request-id";
 

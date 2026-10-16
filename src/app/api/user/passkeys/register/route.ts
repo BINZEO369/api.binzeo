@@ -2,9 +2,9 @@ import { NextRequest } from "next/server";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { z } from "zod";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { byteaFromBase64Url, webauthnConfig } from "@/modules/identity/lib/webauthn";
-import { ok, fail } from "@/modules/identity/lib/api/response";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { byteaFromBase64Url, webauthnConfig } from "@/user/auth/lib/webauthn";
+import { ok, fail } from "@/user/auth/lib/api/response";
 
 const schema = z.object({
   challenge_id: z.string().uuid(),

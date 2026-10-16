@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { sendWelcomeEmailOnce, getWelcomeSiteUrl } from "@/modules/identity/lib/email/welcome";
-import { logUserActivity } from "@/modules/identity/lib/activity-log";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { sendWelcomeEmailOnce, getWelcomeSiteUrl } from "@/user/auth/lib/email/welcome";
+import { logUserActivity } from "@/user/auth/lib/activity-log";
 
 export type GoogleIdentity = {
   id: string;

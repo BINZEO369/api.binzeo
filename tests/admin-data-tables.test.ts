@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { DATA_TABLES, getTableDefinition } from "@/modules/admin/data-tables";
-import { getPrivacyAnalyticsColumns, PRIVACY_ANALYTICS_COLUMNS } from "@/modules/admin/privacy-analytics/columns";
-import { getPrivacyAnalyticsTable, PRIVACY_ANALYTICS_TABLES } from "@/modules/admin/privacy-analytics/tables";
+import { DATA_TABLES, getTableDefinition } from "@/admin/binzeo/data-tables";
+import { getPrivacyAnalyticsColumns, PRIVACY_ANALYTICS_COLUMNS } from "@/admin/binzeo/privacy-analytics/columns";
+import { getPrivacyAnalyticsTable, PRIVACY_ANALYTICS_TABLES } from "@/admin/binzeo/privacy-analytics/tables";
 
 describe("admin data table allowlists", () => {
   it("has unique slugs and only resolves registered tables", () => {

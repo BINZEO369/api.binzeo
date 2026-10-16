@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { fail, ok } from "@/modules/identity/lib/api/response";
-import { uploadMarketingImage } from "@/modules/identity/lib/imagekit";
-import { getAdminServiceContext } from "@/modules/admin/lib/admin";
+import { fail, ok } from "@/user/auth/lib/api/response";
+import { uploadMarketingImage } from "@/user/auth/lib/imagekit";
+import { getAdminServiceContext } from "@/admin/binzeo/lib/admin";
 
 const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 export async function POST(request: NextRequest) {

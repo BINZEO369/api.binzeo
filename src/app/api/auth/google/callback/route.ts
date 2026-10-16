@@ -1,9 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/modules/identity/lib/supabase/server";
-import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
-import { completeGoogleAccount } from "@/modules/identity/lib/google-account";
-import { getPublicSiteUrl } from "@/modules/identity/lib/email/transporter";
+import { createClient } from "@/user/auth/lib/supabase/server";
+import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
+import { completeGoogleAccount } from "@/user/auth/lib/google-account";
+import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";
 
 type GoogleUser = {
   id: string;

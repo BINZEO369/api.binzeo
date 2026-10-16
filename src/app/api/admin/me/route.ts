@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { ok, fail } from "@/modules/admin/lib/api/response";
-import { getAdminApiContext } from "@/modules/admin/lib/admin";
-import { createAdminClient } from "@/modules/admin/lib/supabase/admin";
+import { ok, fail } from "@/admin/binzeo/lib/api/response";
+import { getAdminApiContext } from "@/admin/binzeo/lib/admin";
+import { createAdminClient } from "@/admin/binzeo/lib/supabase/admin";
 
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,30}$/;
 
