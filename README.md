@@ -8,6 +8,7 @@ Central, versioned server-side API for the BINZEO ecosystem. `auth.binzeo` remai
 - `auth` and `admin` are registered UI clients. Their `/api/*` paths are unconditionally rewritten to this service; `CENTRAL_API_BASE_URL` is required at build/runtime.
 - Frontend repositories contain no local API route handlers, Supabase clients, service-role secrets or local-database fallback. If the Central API is unavailable or unconfigured, pages fail closed with HTTP 503 and API requests fail; neither frontend reconnects to Supabase independently.
 - This repository is the single source of truth for the shared Supabase schema and migrations. The frontend repositories contain no database migrations or server-side database scripts.
+- Multi-project metadata is held in `platform_projects`, `platform_clients`, `platform_provider_connections` and `platform_project_access`. The typed catalog in `src/modules/platform/registry.ts` maps enabled projects/providers to server-only environment-variable names without storing secret values in the database.
 - Authenticated server-rendered profile/dashboard reads and admin dashboard, user, Auth-user directory, deleted-email archive, audit, security, settings, table-browser, privacy-analytics, marketing, birthdays and occasion-email operations use the Central API exclusively.
 - Canonical public paths are `/v1/*`; legacy handler paths are internal rewrite targets. OpenAPI is generated from route handlers and served at `/v1/openapi`.
 
@@ -16,6 +17,14 @@ Central, versioned server-side API for the BINZEO ecosystem. `auth.binzeo` remai
 The service contains the unique backend handlers from both repositories. Admin route files that only proxied to auth handlers use the single central implementation. Additional central endpoints support OAuth/PKCE SSO and server-rendered admin data access. The generated OpenAPI document is the source of truth for route coverage.
 
 Route families include auth and account security; profiles, users, addresses, contacts and devices; sectors; privacy/consent/events; admin user management, audit, dashboard summaries, allowlisted data-table browsing, privacy analytics, security history, settings references, email templates, marketing and scheduled birthday email processing.
+
+## Adding a future brand or application
+
+1. Register the brand in `platform_projects` and its web/admin/mobile clients in `platform_clients`.
+2. Register Google, Facebook, Apple, SMTP, ImageKit or other integrations in `platform_provider_connections` using environment-variable **names only**; put actual credentials in the Central API Vercel environment.
+3. Add project-scoped roles and permissions in `platform_project_access`; do not overload global `admin_access` for a new brand.
+4. Add the exact HTTPS origins and redirect URIs, then add a typed server adapter before enabling routes.
+5. Keep all brand-specific routes under an explicit namespace such as `/v1/projects/{project_key}/...`; never accept arbitrary database targets or client-provided secret references.
 
 ## Central SSO
 
