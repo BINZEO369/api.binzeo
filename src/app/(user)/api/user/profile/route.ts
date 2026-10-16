@@ -5,6 +5,7 @@ import { calculateAge, upsertUserBirthday, validateBirthDate } from "@/user/auth
 import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 import { isValidUsername, normalizeUsername } from "@/user/auth/lib/username";
 import { syncJabiyenCustomer } from "@/user/jabiyen/customer-sync";
+import { isCentralAuthManagementOrigin } from "@/user/auth/lib/auth-management-origin";
 
 const ALLOWED_FIELDS = [
   "first_name",
@@ -96,6 +97,9 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
+    if (!isCentralAuthManagementOrigin(req)) {
+      return fail("Profile changes are only allowed through Central Auth.", 403, "CENTRAL_AUTH_ONLY");
+    }
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 

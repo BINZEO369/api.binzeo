@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       try { await sendLoginNotification({ userId: passkey.user_id, email: authUser.user.email, loginMethod: "passkey", ipAddress: ip, userAgent: req.headers.get("user-agent"), siteUrl: getPublicSiteUrl(req.headers), context: { name: profile?.display_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(" "), time: new Date().toUTCString(), ipAddress: securityLocation.ip, location: [securityLocation.city, securityLocation.region, securityLocation.country].filter(Boolean).join(", "), browser: req.headers.get("user-agent") } }); }
       catch (notificationError) { console.error("[PASSKEY_2FA_NOTIFICATION_ERROR]", notificationError); }
     }
-    return ok({ user: { id: passkey.user_id, email: authUser.user.email }, login_method: "passkey" });
+    return ok({ user: { id: passkey.user_id, email: authUser.user.email }, login_method: "passkey", session: sessionData.session });
   } catch (err) {
     console.error("[PASSKEY_VERIFY_ERROR]", err);
     return fail("Passkey authentication failed", 401, "PASSKEY_AUTH_FAILED");
