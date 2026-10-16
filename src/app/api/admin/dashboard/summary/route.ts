@@ -16,7 +16,8 @@ export async function GET() {
     const countTables = ["profiles", "user_login_history", "user_activity_logs", "admin_activity_logs"] as const;
     const [counts, logins, userActivity, adminActivity, profiles] = await Promise.all([
       Promise.all(countTables.map((table) => db.from(table).select("id", { count: "exact", head: true }))),
-      db.from("user_login_history").select("created_at,user_id").gte("created_at", cutoffISO).order("created_at", { ascending: false }).limit(MAX_EVENTS),
+      // user_login_history stores its event timestamp as login_at; keep the shared dashboard row shape.
+      db.from("user_login_history").select("created_at:login_at,user_id").gte("login_at", cutoffISO).order("login_at", { ascending: false }).limit(MAX_EVENTS),
       db.from("user_activity_logs").select("created_at,user_id").gte("created_at", cutoffISO).order("created_at", { ascending: false }).limit(MAX_EVENTS),
       db.from("admin_activity_logs").select("created_at,user_id:admin_user_id").gte("created_at", cutoffISO).order("created_at", { ascending: false }).limit(MAX_EVENTS),
       db.from("profiles").select("created_at").gte("created_at", cutoffISO).order("created_at", { ascending: false }).limit(MAX_EVENTS),
