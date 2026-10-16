@@ -64,3 +64,25 @@ Deploy this repository as the dedicated `api.binzeo` Vercel project (Node.js 22)
 4. Each frontend Vercel project needs only `CENTRAL_API_BASE_URL` (the HTTPS Central API URL) plus its own public-site metadata such as `NEXT_PUBLIC_SITE_URL`. It must not contain Supabase, Google OAuth, SMTP, ImageKit, Cloudinary or cron credentials. The rewrite is unconditional; no `CENTRAL_API_ENABLED` flag exists.
 5. The birthday cron is defined only in this project's `vercel.json` at `/api/internal/birthday-emails` (`0 1 * * *`). It requires the matching central `CRON_SECRET`; the Auth/Admin frontend projects do not schedule backend jobs.
 6. This is a one-way central cutover: local API route handlers and database clients were removed from both frontends. If the central service is down or not configured, the websites stay unavailable rather than reconnecting to their former backend paths. Recovery requires restoring the Central API service, not switching to a frontend database fallback.
+
+## JABIYEN centralization
+
+JABIYEN Website and JABIYEN Admin no longer deploy local `api/index.js` servers. Their public content and admin CRUD requests are served by the Central API through:
+
+- `/api/jabiyen-public/*` — public JABIYEN catalog/content APIs
+- `/api/jabiyen-admin/*` — authenticated JABIYEN admin CRUD APIs
+- `/v1/auth/*`, `/v1/user/*`, `/v1/admin/*` — Central BINZEO authentication, user and admin APIs
+
+The JABIYEN Supabase project remains a separate database. Only the Central API may access it. Add these Vercel environment variables to `api-binzeo` before deploying the gateway:
+
+- `JABIYEN_SUPABASE_URL` — `https://eiueitoxxqzkolsouuzy.supabase.co`
+- `JABIYEN_SUPABASE_ANON_KEY` — JABIYEN public read key
+- `JABIYEN_SUPABASE_SERVICE_ROLE_KEY` — JABIYEN server-only write key; never expose it to either frontend
+
+The Central Auth variables remain required as before:
+
+- `AUTH_SUPABASE_URL`
+- `AUTH_SUPABASE_ANON_KEY`
+- `AUTH_SUPABASE_SERVICE_ROLE_KEY`
+
+Admin authorization is verified against Central Auth `admin_access`; the JABIYEN database is used only for JABIYEN commerce/content data. No JABIYEN password, signup, or local auth route remains in the JABIYEN repositories.

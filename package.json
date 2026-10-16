@@ -2,7 +2,9 @@
   "name": "api.binzeo",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": ">=20.9.0" },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "prebuild": "npm run openapi:generate",
@@ -19,6 +21,7 @@
     "@simplewebauthn/server": "^14.0.3",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
+    "express": "^4.21.2",
     "next": "16.3.8",
     "nodemailer": "^10.1.0",
     "react": "19.2.8",

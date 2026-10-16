@@ -206,6 +206,9 @@ export async function POST(req: NextRequest) {
     });
 
     return ok({
+      // JABIYEN clients use the Central session for authenticated brand APIs.
+      // The token is still scoped to Central Auth; no JABIYEN password or token is stored.
+      session: data.session,
       user: {
         id: data.user.id,
         email: data.user.email,
