@@ -913,6 +913,136 @@
         }
       }
     },
+    "/v1/admin/settings/sectors": {
+      "get": {
+        "operationId": "get_v1_admin_settings_sectors",
+        "tags": [
+          "admin"
+        ],
+        "summary": "GET /v1/admin/settings/sectors",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_admin_settings_sectors",
+        "tags": [
+          "admin"
+        ],
+        "summary": "POST /v1/admin/settings/sectors",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patch_v1_admin_settings_sectors",
+        "tags": [
+          "admin"
+        ],
+        "summary": "PATCH /v1/admin/settings/sectors",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_v1_admin_settings_sectors",
+        "tags": [
+          "admin"
+        ],
+        "summary": "DELETE /v1/admin/settings/sectors",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
     "/v1/admin/tracking/{table}": {
       "get": {
         "operationId": "get_v1_admin_tracking_table",
