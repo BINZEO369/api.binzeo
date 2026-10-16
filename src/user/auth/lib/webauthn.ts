@@ -1,6 +1,22 @@
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
+import { getAllowedOrigins } from "@/lib/env";
+
+function allowedRequestOrigin(req: Request): string | null {
+  const origin = req.headers.get("origin")?.trim();
+  if (!origin) return null;
+  try {
+    const parsed = new URL(origin);
+    if (parsed.origin !== origin || !getAllowedOrigins().has(origin)) return null;
+    return origin;
+  } catch {
+    return null;
+  }
+}
+
 function forwardedOrigin(req: Request) {
+  const callingOrigin = allowedRequestOrigin(req);
+  if (callingOrigin) return callingOrigin;
   const configuredOrigin = process.env.AUTH_APP_URL?.trim();
   if (configuredOrigin) return new URL(configuredOrigin).origin;
   const forwardedHost = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
@@ -22,7 +38,8 @@ export function webauthnConfig(req: Request) {
   // WebAuthn only accepts an RP ID equal to the current host or its parent.
   // This keeps binzeo.com working while also supporting Vercel aliases.
   const rpID = configuredHostApplies ? configuredHost : requestHost;
-  return { origin, rpID };
+  const rpName = requestHost.toLowerCase().includes("jabiyen") ? "JABIYEN" : "BINZEO";
+  return { origin, rpID, rpName };
 }
 
 export function byteaFromBase64Url(value: string) {

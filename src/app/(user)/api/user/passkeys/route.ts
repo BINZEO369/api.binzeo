@@ -44,9 +44,9 @@ export async function POST(req: NextRequest) {
     if (challengeError) return fail(challengeError.message, 400, "PASSKEY_CHALLENGE_ISSUE_FAILED");
     const issued = Array.isArray(challenge) ? challenge[0] : challenge;
     if (!issued?.challenge_id || !issued.challenge) return fail("Could not issue passkey challenge", 400, "PASSKEY_CHALLENGE_ISSUE_FAILED");
-    const { rpID } = webauthnConfig(req);
+    const { rpID, rpName } = webauthnConfig(req);
     const options = await generateRegistrationOptions({
-      rpName: "BINZEO",
+      rpName,
       rpID,
       userID: Buffer.from(user.id.replace(/-/g, ""), "hex"),
       userName: user.email,
