@@ -86,7 +86,7 @@ export async function GET() {
 
     return ok({
       profile: profile ? { ...profile, age: profile.date_of_birth ? calculateAge(profile.date_of_birth) : null } : profile,
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, phone: user.phone ?? null, created_at: user.created_at },
     });
   } catch (err) {
     console.error("[PROFILE_GET_ERROR]", err);

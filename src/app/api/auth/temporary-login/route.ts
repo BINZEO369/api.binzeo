@@ -77,7 +77,11 @@ export async function POST(req: NextRequest) {
       deviceId: device.id,
       metadata: { login_method: "temporary_token" },
     });
-    return ok({ user: { id: consumed.user_id, email: consumed.email }, login_method: "temporary_token" });
+    return ok({
+      user: { id: consumed.user_id, email: consumed.email },
+      session: sessionData.session,
+      login_method: "temporary_token",
+    });
   } catch (err) {
     console.error("[TEMPORARY_LOGIN_ERROR]", err);
     return fail("Internal server error", 500, "INTERNAL_ERROR");
