@@ -7,6 +7,7 @@ Central, versioned server-side API for the BINZEO ecosystem. `auth.binzeo` remai
 - One Vercel-deployable TypeScript/Next.js **modular monolith** with isolated identity, user, admin, privacy, communications, security, registry and database modules.
 - `auth` and `admin` are registered UI clients. Their `/api/*` paths are unconditionally rewritten to this service; `CENTRAL_API_BASE_URL` is required at build/runtime.
 - Frontend repositories contain no local API route handlers, Supabase clients, service-role secrets or local-database fallback. If the Central API is unavailable or unconfigured, pages fail closed with HTTP 503 and API requests fail; neither frontend reconnects to Supabase independently.
+- This repository is the single source of truth for the shared Supabase schema and migrations. The frontend repositories contain no database migrations or server-side database scripts.
 - Authenticated server-rendered profile/dashboard reads and admin dashboard, user, Auth-user directory, deleted-email archive, audit, security, settings, table-browser, privacy-analytics, marketing, birthdays and occasion-email operations use the Central API exclusively.
 - Canonical public paths are `/v1/*`; legacy handler paths are internal rewrite targets. OpenAPI is generated from route handlers and served at `/v1/openapi`.
 
