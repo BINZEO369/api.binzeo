@@ -1,6 +1,6 @@
 // @ts-nocheck
 import express from "express";
-import { supabase, formatProduct, formatProducts } from "./public-context";
+import { createSlug, supabase, formatProduct, formatProducts } from "./public-context";
 
 const router = express.Router();
 
