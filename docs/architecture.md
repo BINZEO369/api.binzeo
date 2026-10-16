@@ -15,8 +15,10 @@ Start with one Vercel-deployable TypeScript/Next.js service and strict module bo
 
 ## Module ownership
 
-- `src/app/v1`: explicit versioned system endpoints and OpenAPI surface.
-- `src/app/api`: the single Next.js-discovered HTTP entrypoint tree. These are the actual route files, not copies of business logic; they must remain here for Next.js routing.
+- `src/app/(admin)`: the single main Next.js route group for BINZEO Admin and JABIYEN Admin endpoints.
+- `src/app/(user)`: the single main Next.js route group for Auth, User and JABIYEN public endpoints.
+- `src/app/(system)`: health, OpenAPI and other platform-level endpoints.
+- Parenthesized folders are Next.js route groups: they organize the tree without changing the public URL. Each HTTP route file exists once; no wrapper or duplicate route tree is created.
 - `src/user/auth`: all Central Auth, user, profile, security, email and identity-provider implementation modules.
 - `src/admin/binzeo`: all BINZEO admin access/data implementation modules and server-owned table allowlists.
 - `src/admin/binzeo/privacy-analytics`: separate allowlisted privacy data tables and column projection.
@@ -40,7 +42,8 @@ JABIYEN is the first bounded project implementation, split by ownership:
 - `src/user/jabiyen/domain` — project-level contract and client ownership.
 - `src/admin/jabiyen` — public/admin composition roots, shared context and a small number of domain-sized handlers (catalog, navigation, content, products, variants, footer/home); no route-per-file explosion.
 - `src/user/jabiyen/customer-sync.ts` — Central Auth to JABIYEN customer mirror.
-- `src/app/api/v1/projects/jabiyen` — the only Next.js route entrypoint for the JABIYEN server handlers; it contains no second copy of JABIYEN business files.
+- `src/app/(admin)/api/v1/projects/jabiyen/admin` — the single JABIYEN Admin route entrypoint.
+- `src/app/(user)/api/v1/projects/jabiyen/public` — the single JABIYEN public website route entrypoint.
 - `/v1/projects/jabiyen/public/*` and `/v1/projects/jabiyen/admin/*` — canonical versioned routes.
 - `/api/jabiyen-public/*` and `/api/jabiyen-admin/*` — temporary compatibility aliases for existing frontends.
 

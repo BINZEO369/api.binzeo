@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const routeRoot = path.join(root, "src/app/api");
+const routeRoot = path.join(root, "src/app");
 const output = path.join(root, "src/openapi.generated.json");
 const methods = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
@@ -19,11 +19,18 @@ async function walk(dir) {
 }
 
 function apiPath(file) {
-  const relative = path.relative(routeRoot, path.dirname(file)).split(path.sep).filter(Boolean);
-  const segments = relative.map((segment) => segment
+  const relative = path.relative(routeRoot, path.dirname(file)).split(path.sep)
+    .filter(Boolean)
+    .filter((segment) => !/^\(.+\)$/.test(segment));
+  const apiIndex = relative.indexOf("api");
+  const routeSegments = apiIndex >= 0 ? relative.slice(apiIndex + 1) : relative;
+  const segments = routeSegments.map((segment) => segment
     .replace(/^\[\.\.\.(.+)\]$/, "{$1}")
     .replace(/^\[(.+)\]$/, "{$1}"));
-  return `/v1${segments.length ? `/${segments.join("/")}` : ""}`;
+  if (apiIndex < 0 && segments[0] !== "v1") return null;
+  return apiIndex >= 0
+    ? `/v1${segments.length ? `/${segments.join("/")}` : ""}`
+    : `/${segments.join("/")}`;
 }
 
 function tagFor(route) {
@@ -42,6 +49,7 @@ const paths = {};
 for (const file of (await walk(routeRoot)).sort()) {
   const source = await readFile(file, "utf8");
   const route = apiPath(file);
+  if (!route) continue;
   const exported = [...source.matchAll(/export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b/g)].map((match) => match[1]);
   paths[route] ??= {};
   for (const method of exported) {

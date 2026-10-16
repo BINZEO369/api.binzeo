@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import document from "@/openapi.generated.json";
 
-const routeRoot = path.resolve(process.cwd(), "src/app/api");
+const routeRoot = path.resolve(process.cwd(), "src/app");
 const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 const paths = document.paths as Record<string, Record<string, unknown>>;
 
@@ -15,9 +15,14 @@ function walk(dir: string): string[] {
 }
 
 function specPath(file: string) {
-  const relative = path.relative(routeRoot, path.dirname(file)).split(path.sep).filter(Boolean);
-  const segments = relative.map((segment) => segment.replace(/^\[\.\.\.(.+)\]$/, "{$1}").replace(/^\[(.+)\]$/, "{$1}"));
-  return `/v1${segments.length ? `/${segments.join("/")}` : ""}`;
+  const relative = path.relative(routeRoot, path.dirname(file)).split(path.sep)
+    .filter(Boolean)
+    .filter((segment) => !/^\(.+\)$/.test(segment));
+  const apiIndex = relative.indexOf("api");
+  const routeSegments = apiIndex >= 0 ? relative.slice(apiIndex + 1) : relative;
+  const segments = routeSegments.map((segment) => segment.replace(/^\[\.\.\.(.+)\]$/, "{$1}").replace(/^\[(.+)\]$/, "{$1}"));
+  if (apiIndex < 0 && segments[0] !== "v1") return null;
+  return apiIndex >= 0 ? `/v1${segments.length ? `/${segments.join("/")}` : ""}` : `/${segments.join("/")}`;
 }
 
 describe("OpenAPI route coverage", () => {
@@ -25,6 +30,7 @@ describe("OpenAPI route coverage", () => {
     for (const file of walk(routeRoot)) {
       const source = readFileSync(file, "utf8");
       const route = specPath(file);
+      if (!route) continue;
       expect(paths).toHaveProperty(route);
       for (const method of methods) {
         if (new RegExp(`export\\s+(?:async\\s+)?function\\s+${method}\\b`).test(source)) {
