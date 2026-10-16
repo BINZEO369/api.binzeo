@@ -1,13 +1,13 @@
 # BINZEO Central API
 
-Central, versioned server-side API for the BINZEO ecosystem. `auth.binzeo` remains the identity/sign-in experience; `admin.binzeo` remains a separate admin console. Both applications currently share one Supabase identity database. Additional products can be connected later through explicit server-side adapters, not arbitrary client-provided URLs.
+Central, versioned server-side API for the BINZEO ecosystem. `auth.binzeo` remains the identity/sign-in experience and `admin.binzeo` remains a separate console; both are UI-only clients. All identity, database, provider, email, upload and scheduled-job operations run through this project. Additional products can be connected later through explicit server-side adapters, not arbitrary client-provided URLs.
 
 ## Architecture
 
 - One Vercel-deployable TypeScript/Next.js **modular monolith** with isolated identity, user, admin, privacy, communications, security, registry and database modules.
-- `auth` and `admin` are registered client applications that currently share one Supabase identity database.
-- Both frontends have feature-flagged `/api/*` rewrites to the central service. `CENTRAL_API_ENABLED` defaults to `false`; their existing behavior remains available until the API is manually deployed, configured and explicitly enabled.
-- Authenticated server-rendered profile/dashboard reads and admin dashboard, user, audit, security, settings, table-browser, privacy-analytics and deleted-account archive reads use central API endpoints when the flag is enabled.
+- `auth` and `admin` are registered UI clients. Their `/api/*` paths are unconditionally rewritten to this service; `CENTRAL_API_BASE_URL` is required at build/runtime.
+- Frontend repositories contain no local API route handlers, Supabase clients, service-role secrets or local-database fallback. If the Central API is unavailable or unconfigured, pages fail closed with HTTP 503 and API requests fail; neither frontend reconnects to Supabase independently.
+- Authenticated server-rendered profile/dashboard reads and admin dashboard, user, Auth-user directory, deleted-email archive, audit, security, settings, table-browser, privacy-analytics, marketing, birthdays and occasion-email operations use the Central API exclusively.
 - Canonical public paths are `/v1/*`; legacy handler paths are internal rewrite targets. OpenAPI is generated from route handlers and served at `/v1/openapi`.
 
 ## Centralized route inventory
@@ -18,7 +18,7 @@ Route families include auth and account security; profiles, users, addresses, co
 
 ## Central SSO
 
-The admin login can be switched to `auth.binzeo` through a short-lived Authorization Code + PKCE flow. Codes are hashed in the database, single-use and short-lived; the Supabase access/refresh token pair is AES-GCM encrypted at rest. The callback URL is exact-allowlisted. The migration is supplied in `supabase/migrations/` and is **not applied automatically**.
+Admin email/password sign-in and optional 2FA are handled directly by the Central API; Google login/signup from the Auth UI also uses Central API OAuth handlers. A separate Authorization Code + PKCE SSO capability remains in the API for future client applications; it is not needed for the current Admin login and its migration/key are not part of this cutover.
 
 ## Security boundaries
 
@@ -46,14 +46,11 @@ The build generates `src/openapi.generated.json`. Tests cover registry and admin
 
 ## Manual deployment and cutover
 
-No Vercel project is created and no deployment is performed by this repository change. Use a **separate Vercel project** connected to `BINZEO369/api.binzeo`, with Node.js 22. Set all variables in the project’s Vercel environment; never commit actual secret values.
+Deploy this repository as the dedicated `api.binzeo` Vercel project (Node.js 22). Set the variables in that project's Vercel environment; never commit secret values.
 
-1. In the central API project, configure `AUTH_SUPABASE_URL`, `AUTH_SUPABASE_ANON_KEY`, `AUTH_SUPABASE_SERVICE_ROLE_KEY`, `API_ALLOWED_ORIGINS` (exact deployed auth/admin origins, comma-separated), `API_ENVIRONMENT=production`, `AUTH_APP_URL`, `ADMIN_APP_URL`, `WEBAUTHN_RP_ID`, and a newly generated `CENTRAL_OAUTH_ENCRYPTION_KEY`. Add provider/SMTP/ImageKit/cron variables only for features that use them.
-2. Review and manually apply `supabase/migrations/20261015120000_central_authorization_codes.sql` to the existing shared Supabase project before enabling central SSO. No migration is automatically applied by build or deploy.
-3. Deploy the central API first. Verify `GET /v1/health` and `GET /v1/openapi`, then test authenticated user and admin endpoints with real sessions. Confirm CORS uses the actual deployed frontend origins.
-4. In each frontend Vercel project, set `CENTRAL_API_BASE_URL` to the **actual HTTPS API deployment URL** and set `CENTRAL_API_ENABLED=true`; redeploy the frontend so Next.js applies the rewrites. The value of `NEXT_PUBLIC_CENTRAL_API_ENABLED` is derived by each `next.config.ts` and should not be used to expose secrets.
-5. Cut over one frontend at a time. Test login/logout, OAuth/PKCE admin SSO, profile updates, admin permissions, user detail pages, audit/security views, data-table pagination, privacy analytics, scheduled birthday email, and request IDs. Verify unauthorized roles remain denied.
-6. Keep the existing auth Vercel cron as the single birthday-email schedule. Do not add a second central cron. Confirm the central API has the matching `CRON_SECRET`.
-7. Rollback by setting `CENTRAL_API_ENABLED=false` and redeploying the affected frontend(s). This returns frontend API routes and server-rendered data reads to their existing implementation; the central API and database migration remain untouched.
-
-Keep frontend Supabase session configuration until the deployed flow has been verified. Do not enable the feature flag before the central API is deployed and healthy.
+1. In the central API project configure `AUTH_SUPABASE_URL`, `AUTH_SUPABASE_ANON_KEY`, `AUTH_SUPABASE_SERVICE_ROLE_KEY`, `API_ALLOWED_ORIGINS` (exact deployed auth/admin origins, comma-separated), `API_ENVIRONMENT=production`, `AUTH_APP_URL`, `ADMIN_APP_URL`, and `WEBAUTHN_RP_ID`.
+2. Add provider secrets **only here**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`; SMTP `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`; ImageKit `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`; and `CRON_SECRET`. Generate secrets in their provider and never copy them into either frontend project.
+3. Deploy the central API first. Verify `GET /v1/health` and `GET /v1/openapi`, then test user/admin login, signup, Google OAuth, session, uploads and admin endpoints. Confirm the exact deployed frontend origins are allowlisted.
+4. Each frontend Vercel project needs only `CENTRAL_API_BASE_URL` (the HTTPS Central API URL) plus its own public-site metadata such as `NEXT_PUBLIC_SITE_URL`. It must not contain Supabase, Google OAuth, SMTP, ImageKit, Cloudinary or cron credentials. The rewrite is unconditional; no `CENTRAL_API_ENABLED` flag exists.
+5. The birthday cron is defined only in this project's `vercel.json` at `/api/internal/birthday-emails` (`0 1 * * *`). It requires the matching central `CRON_SECRET`; the Auth/Admin frontend projects do not schedule backend jobs.
+6. This is a one-way central cutover: local API route handlers and database clients were removed from both frontends. If the central service is down or not configured, the websites stay unavailable rather than reconnecting to their former backend paths. Recovery requires restoring the Central API service, not switching to a frontend database fallback.
