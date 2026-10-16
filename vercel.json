@@ -4,7 +4,7 @@
     {"path": "/api/internal/birthday-emails", "schedule": "0 1 * * *"}
   ],
   "rewrites": [
-    {"source": "/api/jabiyen-public/:path*", "destination": "/api/jabiyen-public.js"},
-    {"source": "/api/jabiyen-admin/:path*", "destination": "/api/jabiyen-admin.js"}
+    {"source": "/api/jabiyen-public/:path*", "destination": "/api/v1/projects/jabiyen/public/:path*"},
+    {"source": "/api/jabiyen-admin/:path*", "destination": "/api/v1/projects/jabiyen/admin/:path*"}
   ]
 }

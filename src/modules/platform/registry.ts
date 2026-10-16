@@ -83,6 +83,42 @@ export const PLATFORM_PROJECT_CATALOG: Readonly<Record<string, PlatformProjectDe
       custom: {},
     },
   },
+  jabiyen: {
+    key: "jabiyen",
+    name: "JABIYEN Commerce",
+    brandName: "JABIYEN",
+    type: "brand",
+    status: "active",
+    databaseRef: "jabiyen",
+    features: ["catalog", "commerce", "content", "customer-profile"],
+    clients: [
+      {
+        key: "website",
+        name: "JABIYEN Website",
+        type: "frontend",
+        status: "active",
+        allowedOrigins: ["https://www.jayenware.shop", "https://jayenware.shop"],
+        scopes: ["catalog", "profile", "customer"],
+      },
+      {
+        key: "admin",
+        name: "JABIYEN Admin",
+        type: "admin",
+        status: "active",
+        allowedOrigins: ["https://admin.jayenware.shop"],
+        scopes: ["catalog", "content", "commerce"],
+      },
+    ],
+    providers: {
+      google: {},
+      facebook: {},
+      apple: {},
+      smtp: { secretEnvVar: "SMTP_PASS" },
+      imagekit: { secretEnvVar: "IMAGEKIT_PRIVATE_KEY" },
+      cloudinary: {},
+      custom: {},
+    },
+  },
 };
 
 export function getPlatformProject(key: string): PlatformProjectDefinition | undefined {

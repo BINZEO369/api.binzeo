@@ -8,6 +8,7 @@ import { ok, fail } from "@/modules/identity/lib/api/response";
 import { logUserActivity } from "@/modules/identity/lib/activity-log";
 import { getSupabaseAdmin } from "@/modules/identity/lib/supabase/admin";
 import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/modules/identity/lib/two-factor/service";
+import { syncJabiyenCustomer } from "@/projects/jabiyen/customer-sync";
 
 export async function POST(req: NextRequest) {
   try {
@@ -143,6 +144,12 @@ export async function POST(req: NextRequest) {
         403,
         "ACCOUNT_BLOCKED"
       );
+    }
+
+    try {
+      await syncJabiyenCustomer(data.user, profile);
+    } catch (syncError) {
+      console.error("[LOGIN_JABIYEN_CUSTOMER_SYNC_ERROR]", syncError);
     }
 
     if (await isTwoFactorEnabled(data.user.id)) {

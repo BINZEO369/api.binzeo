@@ -67,11 +67,36 @@ Deploy this repository as the dedicated `api.binzeo` Vercel project (Node.js 22)
 
 ## JABIYEN centralization
 
-JABIYEN Website and JABIYEN Admin no longer deploy local `api/index.js` servers. Their public content and admin CRUD requests are served by the Central API through:
+JABIYEN Website and JABIYEN Admin no longer deploy local `api/index.js` servers. Their public content and admin CRUD requests are served by the Central API through a bounded project root at `src/projects/jabiyen`:
 
+- `/v1/projects/jabiyen/public/*` — canonical public JABIYEN catalog/content APIs
+- `/v1/projects/jabiyen/admin/*` — canonical authenticated JABIYEN admin CRUD APIs
 - `/api/jabiyen-public/*` — public JABIYEN catalog/content APIs
 - `/api/jabiyen-admin/*` — authenticated JABIYEN admin CRUD APIs
 - `/v1/auth/*`, `/v1/user/*`, `/v1/admin/*` — Central BINZEO authentication, user and admin APIs
+
+The `/api/jabiyen-*` paths are compatibility aliases only; they are rewritten to the canonical Next.js route handlers. The project code is kept together rather than scattered across generic root files:
+
+```text
+src/projects/jabiyen/
+├── config/
+├── database/
+├── domain/
+├── server/
+│   ├── public-api.ts       # public composition root
+│   ├── public-context.ts   # public DB/helpers
+│   ├── catalog.ts
+│   ├── navigation.ts
+│   ├── content.ts
+│   ├── footer-home.ts
+│   ├── admin-api.ts        # admin composition root
+│   ├── admin-context.ts    # Central admin auth + DB
+│   ├── dashboard-hero.ts
+│   ├── products.ts
+│   ├── variants.ts
+│   └── express-adapter.ts  # temporary compatibility bridge
+└── customer-sync.ts
+```
 
 The JABIYEN Supabase project remains a separate database. Only the Central API may access it. Add these Vercel environment variables to `api-binzeo` before deploying the gateway:
 

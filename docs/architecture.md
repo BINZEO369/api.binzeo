@@ -20,7 +20,9 @@ Start with one Vercel-deployable TypeScript/Next.js service and strict module bo
 - `src/modules/identity`: existing auth/account/security behavior and identity providers.
 - `src/modules/admin`: admin access/data helper contracts and server-owned table allowlists.
 - `src/modules/admin/privacy-analytics`: separate allowlisted privacy data tables and column projection.
-- `src/modules/projects`: typed project registry and future database adapters.
+- `src/projects/<project-key>`: one bounded project root containing its config, database adapter, domain contract, customer integration and public/admin server handlers. Keep project internals together; split only when a domain becomes independently reusable or testable.
+- `src/modules/platform`: cross-project registry, clients, providers and project access rules.
+- `src/providers`: shared email, OAuth, storage and database provider clients used by every project.
 - `src/lib/http`: request IDs, response/error contract.
 - `src/lib/security`: CORS, rate limits, request policy.
 - `src/lib/supabase`: user-scoped and privileged connections.
@@ -29,7 +31,17 @@ Start with one Vercel-deployable TypeScript/Next.js service and strict module bo
 
 ## Frontend integration
 
-`auth.binzeo` and `admin.binzeo` remain separately deployed frontend applications. With `CENTRAL_API_ENABLED=false`, they retain existing local route and database fallbacks. When enabled, their `/api/*` requests rewrite to the central API; server-rendered pages forward the signed-in request cookie to fixed, server-configured `/v1/*` endpoints. The browser never receives the central API service-role key.
+`auth.binzeo`, `admin.binzeo`, `JABIYEN-WEBSITE` and `JABIYEN-ADMIN` remain separately deployed frontend applications. Their `/api/*` requests rewrite to fixed central endpoints. The browser never receives a central or project database service-role key.
+
+JABIYEN is the first bounded project implementation:
+
+- `src/projects/jabiyen/config` — project identity and public origins.
+- `src/projects/jabiyen/database` — public and service-role Supabase clients.
+- `src/projects/jabiyen/domain` — project-level contract and client ownership.
+- `src/projects/jabiyen/server` — public/admin composition roots, shared context and a small number of domain-sized handlers (catalog, navigation, content, products, variants, footer/home); no route-per-file explosion.
+- `src/projects/jabiyen/customer-sync.ts` — Central Auth to JABIYEN customer mirror.
+- `/v1/projects/jabiyen/public/*` and `/v1/projects/jabiyen/admin/*` — canonical versioned routes.
+- `/api/jabiyen-public/*` and `/api/jabiyen-admin/*` — temporary compatibility aliases for existing frontends.
 
 The admin console’s data-table and privacy-analytics pages send only table identifiers and pagination to the API. The API independently validates each identifier against its own allowlist, enforces permission/role checks, chooses the permitted column set, and applies bounded pagination. Dashboard summaries and user detail reads likewise execute on the central server.
 

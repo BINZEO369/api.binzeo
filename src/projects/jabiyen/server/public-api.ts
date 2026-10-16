@@ -1,0 +1,20 @@
+import "server-only";
+import express from "express";
+import catalog from "./catalog";
+import navigation from "./navigation";
+import content from "./content";
+import footerHome from "./footer-home";
+
+const app = express();
+app.use((req, _res, next) => {
+  const prefix = "/api/jabiyen-public";
+  if (req.url.startsWith(prefix)) req.url = "/api" + req.url.slice(prefix.length);
+  next();
+});
+app.use(express.json());
+app.use(catalog);
+app.use(navigation);
+app.use(content);
+app.use(footerHome);
+
+export default app;
