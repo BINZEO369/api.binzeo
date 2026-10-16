@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/user/auth/lib/supabase/server";
 import { ok, fail } from "@/user/auth/lib/api/response";
+import { isCentralAuthManagementOrigin } from "@/user/auth/lib/auth-management-origin";
 
 const ALLOWED = [
   "address_type",
@@ -23,6 +24,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!isCentralAuthManagementOrigin(req)) {
+      return fail("Address changes are only allowed through Central Auth.", 403, "CENTRAL_AUTH_ONLY");
+    }
     const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -65,6 +69,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!isCentralAuthManagementOrigin(_req)) {
+      return fail("Address changes are only allowed through Central Auth.", 403, "CENTRAL_AUTH_ONLY");
+    }
     const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

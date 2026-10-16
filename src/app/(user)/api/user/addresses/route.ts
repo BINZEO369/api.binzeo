@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/user/auth/lib/supabase/server";
 import { z } from "zod";
 import { ok, fail } from "@/user/auth/lib/api/response";
+import { isCentralAuthManagementOrigin } from "@/user/auth/lib/auth-management-origin";
 
 const addressSchema = z.object({
   address_type: z
@@ -44,6 +45,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isCentralAuthManagementOrigin(req)) {
+      return fail("Address changes are only allowed through Central Auth.", 403, "CENTRAL_AUTH_ONLY");
+    }
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return fail("Unauthorized", 401, "UNAUTHORIZED");
