@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 import express from "express";
 import { supabase, adminAuth, superAdminAuth } from "./admin-context";
@@ -833,7 +834,6 @@ router.post('/api/admin/products/:productId/generate-variants', adminAuth, async
 
         // Generate new variants
         const newVariants = [];
-        let totalCreated = 0;
 
         for (const color of colors) {
             const { data: sizes, error: sizesError } = await supabase

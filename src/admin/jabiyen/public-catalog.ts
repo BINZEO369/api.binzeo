@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 import express from "express";
 import { createSlug, supabase, formatProduct, formatProducts } from "./public-context";
