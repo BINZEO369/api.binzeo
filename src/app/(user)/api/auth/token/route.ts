@@ -5,23 +5,17 @@ import { authenticateBearerToken } from "@/lib/auth/identity";
 import { codeHash, decryptSession, safeEqual, sha256Base64Url } from "@/lib/auth/authorization-code";
 import { createPrivilegedClient, createPublicClient } from "@/lib/supabase/clients";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
+import { isRegisteredSsoCallback } from "@/lib/auth/sso-clients";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  client_id: z.literal("admin"),
+  client_id: z.enum(["admin", "jabiyen"]),
   redirect_uri: z.string().url(),
   code: z.string().regex(/^[A-Za-z0-9_-]{40,64}$/),
   code_verifier: z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/),
 }).strict();
-
-function expectedAdminCallback(): string | null {
-  const base = process.env.ADMIN_APP_URL;
-  if (!base) return null;
-  try { return `${new URL(base).origin}/auth/callback`; }
-  catch { return null; }
-}
 
 export async function POST(request: Request) {
   const requestId = getRequestId(request);
@@ -38,8 +32,8 @@ export async function POST(request: Request) {
     return apiError(requestId, "RATE_LIMITED", "Too many token exchange attempts.", 429, { "Retry-After": String(rate.retryAfterSeconds) });
   }
 
-  const expectedRedirect = expectedAdminCallback();
-  if (!expectedRedirect || body.redirect_uri !== expectedRedirect) return apiError(requestId, "REDIRECT_URI_MISMATCH", "The redirect URI is not allowlisted.", 400);
+  if (!isRegisteredSsoCallback(body.client_id, body.redirect_uri)) return apiError(requestId, "REDIRECT_URI_MISMATCH", "The redirect URI is not allowlisted.", 400);
+  const expectedRedirect = body.redirect_uri;
 
   try {
     const privileged = createPrivilegedClient();

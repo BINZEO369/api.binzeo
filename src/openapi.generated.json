@@ -1443,6 +1443,35 @@
         }
       }
     },
+    "/v1/auth/authorize/session": {
+      "post": {
+        "operationId": "post_v1_auth_authorize_session",
+        "tags": [
+          "auth"
+        ],
+        "summary": "POST /v1/auth/authorize/session",
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
     "/v1/auth/callback": {
       "get": {
         "operationId": "get_v1_auth_callback",
