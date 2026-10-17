@@ -6,7 +6,7 @@ import { createClient } from "@/user/auth/lib/supabase/server";
 import { upsertUserDevice } from "@/user/auth/lib/device-tracking";
 import { ok, fail } from "@/user/auth/lib/api/response";
 import { logUserActivity } from "@/user/auth/lib/activity-log";
-import { isTwoFactorEnabled } from "@/user/auth/lib/two-factor/service";
+import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/user/auth/lib/two-factor/service";
 
 const tokenSchema = z.object({ token: z.string().min(20).max(256) });
 
@@ -29,12 +29,37 @@ export async function POST(req: NextRequest) {
       return fail("This temporary login token is invalid, expired, revoked, or already used", 401, "TEMPORARY_TOKEN_INVALID");
     }
 
-    // A temporary token is a single factor. Never let it bypass an account's
-    // configured second factor. The token is already consumed at this point,
-    // so a denied attempt cannot be replayed after an attacker learns that 2FA
-    // is enabled.
+    const ip = requestIp(req);
     if (await isTwoFactorEnabled(consumed.user_id)) {
-      return fail("Two-factor authentication is required for this account. Sign in with your password and complete 2FA.", 403, "TWO_FACTOR_REQUIRED");
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("display_name, first_name, last_name")
+        .eq("id", consumed.user_id)
+        .maybeSingle();
+      try {
+        const challenge = await issueAndSendTwoFactorCode({
+          admin,
+          req,
+          userId: consumed.user_id,
+          email: consumed.email,
+          loginMethod: "temporary_token",
+          context: {
+            name: profile?.display_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(" "),
+            time: new Date().toUTCString(),
+            ipAddress: ip,
+            browser: req.headers.get("user-agent"),
+          },
+        });
+        return ok({
+          requires_two_factor: true,
+          challenge_id: challenge.challengeId,
+          user: { id: consumed.user_id, email: consumed.email },
+          login_method: "temporary_token",
+        });
+      } catch (twoFactorError) {
+        console.error("[TEMPORARY_LOGIN_2FA_EMAIL_ERROR]", twoFactorError);
+        return fail("Unable to send the 2FA verification code", 502, "TWO_FACTOR_EMAIL_FAILED");
+      }
     }
 
     const origin = req.headers.get("origin") ?? process.env.AUTH_APP_URL;
@@ -59,7 +84,6 @@ export async function POST(req: NextRequest) {
       return fail("Temporary login could not be completed", 502, "TEMPORARY_LOGIN_FAILED");
     }
 
-    const ip = requestIp(req);
     const device = await upsertUserDevice(supabase, consumed.user_id, req.headers, ip);
     const { error: historyError } = await supabase.from("user_login_history").insert({
       user_id: consumed.user_id,

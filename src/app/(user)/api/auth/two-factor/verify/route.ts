@@ -21,7 +21,10 @@ export async function POST(req: NextRequest) {
     const { data: raw, error } = await admin.rpc("verify_two_factor_login_code", { target_challenge_id: parsed.data.challenge_id, submitted_code: parsed.data.code });
     const result = Array.isArray(raw) ? raw[0] : raw;
     if (error || !result?.valid || !result.user_id || !result.email) return fail("That 2FA code is invalid or expired", 401, "TWO_FACTOR_CODE_INVALID");
-    const loginMethod = challengeMeta?.login_method === "passkey" ? "passkey" : "password";
+    const challengeLoginMethod = challengeMeta?.login_method;
+    const loginMethod = challengeLoginMethod === "passkey" || challengeLoginMethod === "temporary_token"
+      ? challengeLoginMethod
+      : "password";
 
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({ type: "magiclink", email: result.email });
     const hashedToken = linkData?.properties?.hashed_token;
