@@ -9,8 +9,9 @@ import { upsertUserDevice } from "@/user/auth/lib/device-tracking";
 import { ok, fail } from "@/user/auth/lib/api/response";
 import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/user/auth/lib/two-factor/service";
 import { logUserActivity } from "@/user/auth/lib/activity-log";
+import { createPasskeyHandoffToken, isPasskeyHandoffOriginAllowed } from "@/user/auth/lib/passkey-handoff";
 
-const schema = z.object({ challenge_id: z.string().uuid(), challenge: z.string().min(16).max(512), response: z.unknown() });
+const schema = z.object({ challenge_id: z.string().uuid(), challenge: z.string().min(16).max(512), response: z.unknown(), handoff_to_jabiyen: z.boolean().optional().default(false) });
 
 function requestIp(req: NextRequest) {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "0.0.0.0";
@@ -31,6 +32,9 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     if (passkeyError || !passkey) return fail("Passkey not found or revoked", 401, "PASSKEY_NOT_FOUND");
     const { rpID, origin } = webauthnConfig(req);
+    if (parsed.data.handoff_to_jabiyen && !isPasskeyHandoffOriginAllowed(req.headers.get("origin"), origin)) {
+      return fail("JABIYEN passkey handoff must originate from Central Auth", 403, "PASSKEY_HANDOFF_ORIGIN_INVALID");
+    }
     const publicKeyHex = typeof passkey.public_key === "string" && passkey.public_key.startsWith("\\x") ? passkey.public_key.slice(2) : String(passkey.public_key);
     const verification = await verifyAuthenticationResponse({
       response,
@@ -57,6 +61,20 @@ export async function POST(req: NextRequest) {
     if (!authUser.user?.email) return fail("Passkey account is unavailable", 401, "PASSKEY_ACCOUNT_UNAVAILABLE");
     const ip = requestIp(req);
     const { data: profile } = await admin.from("profiles").select("display_name, first_name, last_name").eq("id", passkey.user_id).maybeSingle();
+    if (parsed.data.handoff_to_jabiyen) {
+      const handoff = createPasskeyHandoffToken({
+        userId: passkey.user_id,
+        ipAddress: ip,
+        userAgent: req.headers.get("user-agent"),
+      });
+      const { error: tokenError } = await admin.from("temporary_login_tokens").insert(handoff.record);
+      if (tokenError) {
+        console.error("[PASSKEY_HANDOFF_TOKEN_ERROR]", tokenError);
+        return fail("Passkey verified, but the JABIYEN handoff could not be created", 502, "PASSKEY_HANDOFF_FAILED");
+      }
+      // JABIYEN redeems this one-time token and performs any required email 2FA there.
+      return ok({ handoff_token: handoff.token, login_method: "passkey" }, 201);
+    }
     if (await isTwoFactorEnabled(passkey.user_id)) {
       try {
         const twoFactor = await issueAndSendTwoFactorCode({
