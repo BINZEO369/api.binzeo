@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient();
+    // Return a session for the requesting app; do not revoke other app sessions.
     const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
       token_hash: hashedToken,
       type: "email",

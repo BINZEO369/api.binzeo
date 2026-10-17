@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     const hashedToken = linkData?.properties?.hashed_token;
     if (linkError || !hashedToken) return fail("2FA verification succeeded, but the session could not be created", 502, "TWO_FACTOR_SESSION_FAILED");
     const supabase = await createClient();
+    // Create a session for the requesting app; never revoke other app sessions here.
     const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({ token_hash: hashedToken, type: "email" });
     if (sessionError || !sessionData.session || sessionData.user?.id !== result.user_id) return fail("2FA verification succeeded, but the session could not be created", 502, "TWO_FACTOR_SESSION_FAILED");
 
