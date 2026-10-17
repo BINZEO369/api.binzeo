@@ -3,6 +3,7 @@ import { createClient } from "@/user/auth/lib/supabase/server";
 import { ok, fail } from "@/user/auth/lib/api/response";
 import { logUserActivity } from "@/user/auth/lib/activity-log";
 import { createUserScopedClient } from "@/lib/supabase/clients";
+import { signOutCurrentAppSession } from "@/user/auth/lib/session-signout";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
         description: "Signed out successfully.",
       });
     }
-    const { error } = await supabase.auth.signOut();
+    const { error } = await signOutCurrentAppSession(supabase.auth);
 
     if (error) {
       return fail(error.message, 400, "SIGNOUT_FAILED");

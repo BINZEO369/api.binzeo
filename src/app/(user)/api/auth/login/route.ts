@@ -9,6 +9,7 @@ import { logUserActivity } from "@/user/auth/lib/activity-log";
 import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/user/auth/lib/two-factor/service";
 import { syncJabiyenCustomer } from "@/user/jabiyen/customer-sync";
+import { signOutCurrentAppSession } from "@/user/auth/lib/session-signout";
 
 export async function POST(req: NextRequest) {
   try {
@@ -168,7 +169,7 @@ export async function POST(req: NextRequest) {
             browser: req.headers.get("user-agent"),
           },
         });
-        await supabase.auth.signOut();
+        await signOutCurrentAppSession(supabase.auth);
         return ok({
           requires_two_factor: true,
           challenge_id: challenge.challengeId,
@@ -184,7 +185,7 @@ export async function POST(req: NextRequest) {
         });
       } catch (twoFactorError) {
         console.error("[LOGIN_2FA_EMAIL_ERROR]", twoFactorError);
-        await supabase.auth.signOut();
+        await signOutCurrentAppSession(supabase.auth);
         return fail("Unable to send the 2FA verification code", 502, "TWO_FACTOR_EMAIL_FAILED");
       }
     }
