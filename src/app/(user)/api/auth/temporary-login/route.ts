@@ -7,6 +7,7 @@ import { upsertUserDevice } from "@/user/auth/lib/device-tracking";
 import { ok, fail } from "@/user/auth/lib/api/response";
 import { logUserActivity } from "@/user/auth/lib/activity-log";
 import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/user/auth/lib/two-factor/service";
+import { logAuthSessionShape } from "@/user/auth/lib/session-diagnostics";
 
 const tokenSchema = z.object({ token: z.string().min(20).max(256) });
 
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
       deviceId: device.id,
       metadata: { login_method: "temporary_token" },
     });
+    logAuthSessionShape(req, "temporary_token", sessionData.session);
     return ok({
       user: { id: consumed.user_id, email: consumed.email },
       session: sessionData.session,
