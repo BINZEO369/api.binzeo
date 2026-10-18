@@ -18,7 +18,7 @@ const bodySchema = z.object({
   redirect_uri: z.string().url().max(2048),
   state: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/),
   code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
-  refresh_token: z.string().min(16).max(4096),
+  refresh_token: z.string().min(16).max(16_384),
 }).strict();
 
 function expectedAdminCallback(): string {
@@ -31,9 +31,24 @@ function expectedAdminCallback(): string {
 
 export async function POST(request: Request) {
   const requestId = getRequestId(request);
-  let body: z.infer<typeof bodySchema>;
-  try { body = bodySchema.parse(await request.json()); }
-  catch { return apiError(requestId, "INVALID_REQUEST", "Invalid authorization request.", 400); }
+  let rawBody: unknown;
+  try { rawBody = await request.json(); }
+  catch {
+    console.warn("[OAUTH_AUTHORIZE_INVALID_REQUEST]", { requestId, issue: "invalid_json" });
+    return apiError(requestId, "INVALID_REQUEST", "Invalid authorization request.", 400);
+  }
+  const parsedBody = bodySchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    console.warn("[OAUTH_AUTHORIZE_INVALID_REQUEST]", {
+      requestId,
+      issues: parsedBody.error.issues.map((issue) => ({
+        code: issue.code,
+        path: issue.path.map(String).join("."),
+      })),
+    });
+    return apiError(requestId, "INVALID_REQUEST", "Invalid authorization request.", 400);
+  }
+  const body: z.infer<typeof bodySchema> = parsedBody.data;
 
   let publicClient;
   try { publicClient = createPublicClient(); }

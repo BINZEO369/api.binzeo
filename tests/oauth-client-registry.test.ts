@@ -20,4 +20,11 @@ describe("registered Central OAuth clients", () => {
     expect(isRegisteredRedirectUriAllowed(client, "https://jabiyen-website.vercel.app/other")).toBe(false);
     expect(isRegisteredRedirectUriAllowed(client, "https://attacker.example/auth/callback")).toBe(false);
   });
+
+  it("rejects insecure registered callbacks outside local development", () => {
+    const remoteHttp = { redirect_uris: ["http://shop.example.com/auth/callback"] };
+    const localHttp = { redirect_uris: ["http://localhost:3000/auth/callback"] };
+    expect(isRegisteredRedirectUriAllowed(remoteHttp, "http://shop.example.com/auth/callback")).toBe(false);
+    expect(isRegisteredRedirectUriAllowed(localHttp, "http://localhost:3000/auth/callback")).toBe(true);
+  });
 });
