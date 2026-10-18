@@ -10,6 +10,7 @@ import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/user/auth/lib/two-factor/service";
 import { syncJabiyenCustomer } from "@/user/jabiyen/customer-sync";
 import { signOutCurrentAppSession } from "@/user/auth/lib/session-signout";
+import { logAuthSessionShape } from "@/user/auth/lib/session-diagnostics";
 
 export async function POST(req: NextRequest) {
   try {
@@ -213,6 +214,7 @@ export async function POST(req: NextRequest) {
       metadata: { login_method: "password" },
     });
 
+    logAuthSessionShape(req, "email_password", data.session);
     return ok({
       // JABIYEN clients use the Central session for authenticated brand APIs.
       // The token is still scoped to Central Auth; no JABIYEN password or token is stored.

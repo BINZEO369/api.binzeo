@@ -8,6 +8,7 @@ import { sendLoginNotification } from "@/user/auth/lib/email/two-factor";
 import { getPublicSiteUrl } from "@/user/auth/lib/email/transporter";
 import { resolveRequestLocation } from "@/user/auth/lib/request-location";
 import { ok, fail } from "@/user/auth/lib/api/response";
+import { logAuthSessionShape } from "@/user/auth/lib/session-diagnostics";
 
 const schema = z.object({ challenge_id: z.string().uuid(), code: z.string().regex(/^\d{6}$/) });
 function requestIp(req: NextRequest) { return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "0.0.0.0"; }
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
     await logUserActivity(supabase, req, { userId: result.user_id, activityType: `${loginMethod}_login_2fa_success`, description: `Signed in successfully with ${loginMethod} after email 2FA verification.`, deviceId: device.id, metadata: { challenge_id: parsed.data.challenge_id, login_method: loginMethod } });
     try { await sendLoginNotification({ userId: result.user_id, email: result.email, loginMethod: `${loginMethod} + email 2FA`, ipAddress: ip, userAgent: req.headers.get("user-agent"), siteUrl: getPublicSiteUrl(req.headers), context: { name: profile?.display_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(" "), time: new Date().toUTCString(), ipAddress: securityLocation.ip, location: [securityLocation.city, securityLocation.region, securityLocation.country].filter(Boolean).join(", "), browser: req.headers.get("user-agent") } }); }
     catch (notificationError) { console.error("[TWO_FACTOR_NOTIFICATION_ERROR]", notificationError); }
+    logAuthSessionShape(req, `${loginMethod}_2fa`, sessionData.session);
     return ok({ session: sessionData.session, user: { id: result.user_id, email: result.email }, login_method: `${loginMethod}_2fa` });
   } catch (error) {
     console.error("[TWO_FACTOR_VERIFY_ERROR]", error);

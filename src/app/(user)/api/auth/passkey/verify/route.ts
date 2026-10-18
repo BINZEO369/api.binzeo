@@ -10,6 +10,7 @@ import { ok, fail } from "@/user/auth/lib/api/response";
 import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/user/auth/lib/two-factor/service";
 import { logUserActivity } from "@/user/auth/lib/activity-log";
 import { isPasskeyHandoffOriginAllowed } from "@/user/auth/lib/passkey-handoff";
+import { logAuthSessionShape } from "@/user/auth/lib/session-diagnostics";
 
 const schema = z.object({ challenge_id: z.string().uuid(), challenge: z.string().min(16).max(512), response: z.unknown(), oauth_handoff: z.boolean().optional().default(false) });
 
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
     const device = await upsertUserDevice(supabase, passkey.user_id, req.headers, ip);
     await supabase.from("user_login_history").insert({ user_id: passkey.user_id, login_method: "passkey", login_status: "success", ip_address: ip, device_id: device.id, user_agent: req.headers.get("user-agent") });
     await logUserActivity(supabase, req, { userId: passkey.user_id, activityType: "passkey_login_success", description: "Signed in successfully with a passkey.", deviceId: device.id, metadata: { login_method: "passkey" } });
+    logAuthSessionShape(req, "passkey", sessionData.session);
     return ok({
       user: { id: passkey.user_id, email: authUser.user.email },
       login_method: "passkey",
