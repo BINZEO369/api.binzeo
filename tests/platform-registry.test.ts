@@ -12,6 +12,16 @@ describe("platform project catalog", () => {
     expect(getPlatformClient("binzeo", "admin")?.type).toBe("admin");
   });
 
+  it("uses only the confirmed Vercel origins for JABIYEN clients", () => {
+    expect(getPlatformClient("jabiyen", "website")?.allowedOrigins).toEqual([
+      "https://jabiyen-website.vercel.app",
+    ]);
+    expect(getPlatformClient("jabiyen", "admin")?.allowedOrigins).toEqual([
+      "https://jabiyen-admin.vercel.app",
+    ]);
+    expect(JSON.stringify(publicPlatformCatalog())).not.toContain("jayenware.shop");
+  });
+
   it("rejects arbitrary project keys and unsafe provider lookups", () => {
     expect(getPlatformProject("https://attacker.example")).toBeUndefined();
     expect(getPlatformProject("JABIYEN")).toBeUndefined();

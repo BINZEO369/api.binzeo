@@ -97,7 +97,7 @@ export const PLATFORM_PROJECT_CATALOG: Readonly<Record<string, PlatformProjectDe
         name: "JABIYEN Website",
         type: "frontend",
         status: "active",
-        allowedOrigins: ["https://www.jayenware.shop", "https://jayenware.shop"],
+        allowedOrigins: ["https://jabiyen-website.vercel.app"],
         scopes: ["catalog", "profile", "customer"],
       },
       {
@@ -105,7 +105,7 @@ export const PLATFORM_PROJECT_CATALOG: Readonly<Record<string, PlatformProjectDe
         name: "JABIYEN Admin",
         type: "admin",
         status: "active",
-        allowedOrigins: ["https://admin.jayenware.shop"],
+        allowedOrigins: ["https://jabiyen-admin.vercel.app"],
         scopes: ["catalog", "content", "commerce"],
       },
     ],

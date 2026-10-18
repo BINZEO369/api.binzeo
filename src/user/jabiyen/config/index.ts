@@ -3,8 +3,8 @@ import "server-only";
 export const JABIYEN_PROJECT_KEY = "jabiyen" as const;
 export const JABIYEN_DATABASE_URL = process.env.JABIYEN_SUPABASE_URL;
 export const JABIYEN_PUBLIC_ORIGINS = [
-  "https://www.jayenware.shop",
-  "https://jayenware.shop",
+  "https://jabiyen-website.vercel.app",
+  "https://jabiyen-admin.vercel.app",
 ] as const;
 
 export function requireJabiyenDatabaseUrl() {
