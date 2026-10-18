@@ -18,7 +18,8 @@ const bodySchema = z.object({
   redirect_uri: z.string().url().max(2048),
   state: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/),
   code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
-  refresh_token: z.string().min(16).max(16_384),
+  // Supabase refresh tokens are opaque; enforce presence and a safe size cap, not a guessed minimum.
+  refresh_token: z.string().min(1).max(16_384),
 }).strict();
 
 function expectedAdminCallback(): string {
