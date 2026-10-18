@@ -4,14 +4,10 @@ export type SsoClientId = "admin" | "jabiyen";
 
 const CURRENT_JABIYEN_CALLBACKS = [
   "https://jabiyen-website.vercel.app/auth/callback",
-  "https://www.jayenware.shop/auth/callback",
-  "https://jayenware.shop/auth/callback",
 ] as const;
 
 export function expectedSsoCallback(clientId: SsoClientId): string | null {
-  const configuredBase = clientId === "admin"
-    ? process.env.ADMIN_APP_URL
-    : process.env.JABIYEN_APP_URL;
+  const configuredBase = clientId === "admin" ? process.env.ADMIN_APP_URL : null;
 
   if (configuredBase) {
     try {
