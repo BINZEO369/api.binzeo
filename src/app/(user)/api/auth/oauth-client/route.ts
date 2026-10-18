@@ -43,13 +43,13 @@ export async function GET(request: NextRequest) {
       if (redirectUri !== adminCallback()) {
         return apiError(requestId, "REDIRECT_URI_MISMATCH", "The return address is not registered for this application.", 400);
       }
-      return apiSuccess({ client_id: "admin", client_name: "BINZEO Admin", brand_name: "BINZEO", project_name: "BINZEO Admin" }, requestId);
+      return apiSuccess({ client_id: "admin", client_name: "BINZEO Admin", brand_name: "BINZEO", project_name: "BINZEO Admin", logo_url: "https://auth-binzeo.vercel.app/logo.svg" }, requestId);
     }
     if (clientId === "jabiyen") {
       if (!isRegisteredSsoCallback("jabiyen", redirectUri)) {
         return apiError(requestId, "REDIRECT_URI_MISMATCH", "The return address is not registered for this application.", 400);
       }
-      return apiSuccess({ client_id: "jabiyen", client_name: "JABIYEN Website", brand_name: "JABIYEN", project_name: "JABIYEN" }, requestId);
+      return apiSuccess({ client_id: "jabiyen", client_name: "JABIYEN Website", brand_name: "JABIYEN", project_name: "JABIYEN", logo_url: "https://jabiyen-website.vercel.app/logo.png" }, requestId);
     }
 
     const client = await getRegisteredOAuthClient(clientId);
@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
       client_name: client.client_name,
       brand_name: client.brand_name,
       project_name: client.project_name,
+      logo_url: client.logo_url,
     }, requestId);
   } catch (error) {
     console.error("[OAUTH_CLIENT_METADATA_ERROR]", error instanceof Error ? error.message : "unknown");
