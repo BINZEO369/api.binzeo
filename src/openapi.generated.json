@@ -1675,6 +1675,64 @@
         }
       }
     },
+    "/v1/auth/handoff/issue": {
+      "post": {
+        "operationId": "post_v1_auth_handoff_issue",
+        "tags": [
+          "auth"
+        ],
+        "summary": "POST /v1/auth/handoff/issue",
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
+    "/v1/auth/handoff/redeem": {
+      "post": {
+        "operationId": "post_v1_auth_handoff_redeem",
+        "tags": [
+          "auth"
+        ],
+        "summary": "POST /v1/auth/handoff/redeem",
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
     "/v1/auth/login": {
       "post": {
         "operationId": "post_v1_auth_login",
