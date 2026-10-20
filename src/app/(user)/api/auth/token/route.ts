@@ -7,7 +7,6 @@ import { getRegisteredOAuthClient, isRegisteredRedirectUriAllowed } from "@/lib/
 import { createPrivilegedClient, createPublicClient } from "@/lib/supabase/clients";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { isRegisteredSsoCallback } from "@/lib/auth/sso-clients";
-import { recordProjectAccessEvent } from "@/lib/auth/project-access-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -98,7 +97,6 @@ export async function POST(request: Request) {
       return apiError(requestId, "SESSION_NO_LONGER_VALID", "The account session is no longer valid. Please sign in again.", 401);
     }
     // A refresh token is returned only after revalidating the access token for the same user.
-    await recordProjectAccessEvent({ userId: consumed.user_id, clientId: body.client_id, eventType: "token_verified", request, metadata: { flow: "authorization_code" } });
     return apiSuccess({ session }, requestId);
   } catch (error) {
     console.error("[OAUTH_TOKEN_ERROR]", error instanceof Error ? error.message : "unknown");

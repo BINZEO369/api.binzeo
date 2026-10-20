@@ -8,7 +8,6 @@ import { createClient } from "@/user/auth/lib/supabase/server";
 import { createPrivilegedClient, createPublicClient } from "@/lib/supabase/clients";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { isRegisteredSsoCallback } from "@/lib/auth/sso-clients";
-import { recordProjectAccessEvent } from "@/lib/auth/project-access-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,7 +68,6 @@ export async function POST(request: Request) {
       expires_at: expiresAt,
     });
     if (error) return apiError(requestId, "AUTHORIZATION_UNAVAILABLE", "Sign-in could not be completed. Please retry.", 503);
-    await recordProjectAccessEvent({ userId: auth.identity.user.id, clientId: body.client_id, eventType: "token_issued", request, metadata: { flow: "authorization_code" } });
     const callback = new URL(body.redirect_uri);
     callback.searchParams.set("code", code);
     callback.searchParams.set("state", body.state);

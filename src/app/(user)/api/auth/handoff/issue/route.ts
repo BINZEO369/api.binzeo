@@ -8,7 +8,6 @@ import { createPrivilegedClient, createPublicClient } from "@/lib/supabase/clien
 import { getServiceRoleKey } from "@/lib/env";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { isRegisteredSsoCallback } from "@/lib/auth/sso-clients";
-import { recordProjectAccessEvent } from "@/lib/auth/project-access-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,7 +96,6 @@ export async function POST(request: Request) {
       return apiError(requestId, "APPLICATION_HANDOFF_UNAVAILABLE", "Sign-in could not be completed. Please retry.", 503);
     }
 
-    await recordProjectAccessEvent({ userId: auth.identity.user.id, clientId: body.client_id, eventType: "token_issued", request, metadata: { flow: "one_time_handoff" } });
     callback.hash = new URLSearchParams({ handoff_token: handoff.token, state: body.state }).toString();
     return apiSuccess({ redirect_url: callback.toString(), expires_in: 60 }, requestId);
   } catch (error) {
