@@ -4,8 +4,6 @@ export type SsoClientId = "admin" | "jabiyen";
 
 const CURRENT_JABIYEN_CALLBACKS = [
   "https://jabiyen-website.vercel.app/auth/callback",
-  "https://www.jayenware.shop/auth/callback",
-  "https://jayenware.shop/auth/callback",
 ] as const;
 
 export function expectedSsoCallback(clientId: SsoClientId): string | null {
@@ -27,7 +25,5 @@ export function expectedSsoCallback(clientId: SsoClientId): string | null {
 
 export function isRegisteredSsoCallback(clientId: SsoClientId, redirectUri: string): boolean {
   const expected = expectedSsoCallback(clientId);
-  if (expected === redirectUri) return true;
-  if (clientId === "jabiyen") return (CURRENT_JABIYEN_CALLBACKS as readonly string[]).includes(redirectUri);
-  return false;
+  return expected === redirectUri;
 }
