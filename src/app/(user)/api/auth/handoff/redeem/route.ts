@@ -7,14 +7,13 @@ import { isApplicationHandoffToken, sha256ApplicationHandoffToken, verifyApplica
 import { getServiceRoleKey } from "@/lib/env";
 import { createPrivilegedClient, createPublicClient } from "@/lib/supabase/clients";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
-import { isRegisteredSsoCallback } from "@/lib/auth/sso-clients";
 import { createClient } from "@/user/auth/lib/supabase/server";
 import { logAuthSessionShape } from "@/user/auth/lib/session-diagnostics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const clientIdPattern = /^(?:jabiyen|[a-z0-9][a-z0-9-]{0,62}:[a-z0-9][a-z0-9-]{0,62})$/;
+const clientIdPattern = /^(?:[a-z0-9][a-z0-9-]{0,62}:[a-z0-9][a-z0-9-]{0,62})$/;
 const bodySchema = z.object({
   token: z.string().min(90).max(128),
   client_id: z.string().regex(clientIdPattern),
@@ -24,9 +23,6 @@ const bodySchema = z.object({
 }).strict();
 
 async function validateClient(clientId: string, redirectUri: string): Promise<"allowed" | "not_found" | "redirect_mismatch" | "admin_client"> {
-  if (clientId === "jabiyen") {
-    return isRegisteredSsoCallback("jabiyen", redirectUri) ? "allowed" : "redirect_mismatch";
-  }
   try {
     const client = await getRegisteredOAuthClient(clientId);
     if (!client) return "not_found";

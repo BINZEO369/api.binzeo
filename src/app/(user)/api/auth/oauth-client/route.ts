@@ -4,7 +4,6 @@ import { getRequestId } from "@/lib/http/request-id";
 import { createPublicClient } from "@/lib/supabase/clients";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getRegisteredOAuthClient, isRegisteredRedirectUriAllowed } from "@/lib/auth/oauth-client-registry";
-import { isRegisteredSsoCallback } from "@/lib/auth/sso-clients";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,13 +44,6 @@ export async function GET(request: NextRequest) {
       }
       return apiSuccess({ client_id: "admin", client_name: "BINZEO Admin", brand_name: "BINZEO", project_name: "BINZEO Admin", logo_url: "https://auth-binzeo.vercel.app/logo.svg" }, requestId);
     }
-    if (clientId === "jabiyen") {
-      if (!isRegisteredSsoCallback("jabiyen", redirectUri)) {
-        return apiError(requestId, "REDIRECT_URI_MISMATCH", "The return address is not registered for this application.", 400);
-      }
-      return apiSuccess({ client_id: "jabiyen", client_name: "JABIYEN Website", brand_name: "JABIYEN", project_name: "JABIYEN", logo_url: "https://jabiyen-website.vercel.app/logo.png" }, requestId);
-    }
-
     const client = await getRegisteredOAuthClient(clientId);
     if (!client) return apiError(requestId, "OAUTH_CLIENT_NOT_FOUND", "This application is not registered for Central Auth sign-in.", 404);
     if (!isRegisteredRedirectUriAllowed(client, redirectUri)) {

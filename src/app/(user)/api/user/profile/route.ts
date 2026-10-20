@@ -4,7 +4,6 @@ import { ok, fail } from "@/user/auth/lib/api/response";
 import { calculateAge, upsertUserBirthday, validateBirthDate } from "@/user/auth/lib/birthday";
 import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 import { isValidUsername, normalizeUsername } from "@/user/auth/lib/username";
-import { syncJabiyenCustomer } from "@/user/jabiyen/customer-sync";
 import { isCentralAuthManagementOrigin } from "@/user/auth/lib/auth-management-origin";
 
 const ALLOWED_FIELDS = [
@@ -176,12 +175,6 @@ export async function PATCH(req: NextRequest) {
         console.error("[PROFILE_BIRTHDAY_SYNC_ERROR]", birthdayError);
         return fail("Profile saved, but birthday record could not be synchronized", 500, "BIRTHDAY_SYNC_FAILED");
       }
-    }
-
-    try {
-      await syncJabiyenCustomer(user, data);
-    } catch (syncError) {
-      console.error("[PROFILE_JABIYEN_CUSTOMER_SYNC_ERROR]", syncError);
     }
 
     return ok({ profile: data });

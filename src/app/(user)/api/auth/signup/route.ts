@@ -11,7 +11,6 @@ import { logUserActivity } from "@/user/auth/lib/activity-log";
 import { upsertUserBirthday, validateBirthDate } from "@/user/auth/lib/birthday";
 import { emailAlreadyExists, normalizeEmail } from "@/user/auth/lib/auth-email";
 import { isValidUsername, normalizeUsername, usernameExists } from "@/user/auth/lib/username";
-import { syncJabiyenCustomer } from "@/user/jabiyen/customer-sync";
 
 const signupSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -146,22 +145,6 @@ export async function POST(req: NextRequest) {
       }
       console.error("[SIGNUP_PROFILE_UPDATE_ERROR]", profileError);
       return fail("Account created, but profile setup failed", 500, "PROFILE_SETUP_FAILED");
-    }
-
-    try {
-      await syncJabiyenCustomer(user, {
-        first_name,
-        last_name,
-        display_name: `${first_name} ${last_name}`.trim(),
-        username,
-        date_of_birth,
-        country_code: country_code || location.country || null,
-        account_status: "active",
-      });
-    } catch (syncError) {
-      // Central Auth remains authoritative; a temporary mirror failure must
-      // not roll back a valid account. Login/profile update retries the sync.
-      console.error("[SIGNUP_JABIYEN_CUSTOMER_SYNC_ERROR]", syncError);
     }
 
     try {

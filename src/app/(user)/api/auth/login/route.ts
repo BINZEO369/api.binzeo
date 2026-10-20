@@ -8,7 +8,6 @@ import { ok, fail } from "@/user/auth/lib/api/response";
 import { logUserActivity } from "@/user/auth/lib/activity-log";
 import { getSupabaseAdmin } from "@/user/auth/lib/supabase/admin";
 import { isTwoFactorEnabled, issueAndSendTwoFactorCode } from "@/user/auth/lib/two-factor/service";
-import { syncJabiyenCustomer } from "@/user/jabiyen/customer-sync";
 import { signOutCurrentAppSession } from "@/user/auth/lib/session-signout";
 import { logAuthSessionShape } from "@/user/auth/lib/session-diagnostics";
 
@@ -146,12 +145,6 @@ export async function POST(req: NextRequest) {
         403,
         "ACCOUNT_BLOCKED"
       );
-    }
-
-    try {
-      await syncJabiyenCustomer(data.user, profile);
-    } catch (syncError) {
-      console.error("[LOGIN_JABIYEN_CUSTOMER_SYNC_ERROR]", syncError);
     }
 
     if (await isTwoFactorEnabled(data.user.id)) {

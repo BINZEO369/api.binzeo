@@ -7,7 +7,6 @@ import { codeHash, createOpaqueCode, encryptSession } from "@/lib/auth/authoriza
 import { getRegisteredOAuthClient, isRegisteredRedirectUriAllowed } from "@/lib/auth/oauth-client-registry";
 import { createPrivilegedClient, createPublicClient } from "@/lib/supabase/clients";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
-import { isRegisteredSsoCallback } from "@/lib/auth/sso-clients";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +15,7 @@ export const dynamic = "force-dynamic";
 // The browser receives the resulting short-lived code through the allowlisted
 // redirect URI; access and refresh tokens are never placed in that redirect.
 
-const clientIdPattern = /^(?:admin|jabiyen|[a-z0-9][a-z0-9-]{0,62}:[a-z0-9][a-z0-9-]{0,62})$/;
+const clientIdPattern = /^(?:admin|[a-z0-9][a-z0-9-]{0,62}:[a-z0-9][a-z0-9-]{0,62})$/;
 const bodySchema = z.object({
   client_id: z.string().regex(clientIdPattern),
   redirect_uri: z.string().url().max(2048),
@@ -74,11 +73,6 @@ export async function POST(request: Request) {
     try { redirectUri = expectedAdminCallback(); }
     catch { return apiError(requestId, "CLIENT_NOT_CONFIGURED", "The admin client is not configured.", 503); }
     if (body.redirect_uri !== redirectUri) return apiError(requestId, "REDIRECT_URI_MISMATCH", "The redirect URI is not allowlisted.", 400);
-  } else if (body.client_id === "jabiyen") {
-    if (!isRegisteredSsoCallback("jabiyen", body.redirect_uri)) {
-      return apiError(requestId, "REDIRECT_URI_MISMATCH", "The redirect URI is not allowlisted.", 400);
-    }
-    redirectUri = body.redirect_uri;
   } else {
     try {
       const client = await getRegisteredOAuthClient(body.client_id);

@@ -8,7 +8,6 @@ import { upsertUserBirthday, validateBirthDate } from "@/user/auth/lib/birthday"
 import { isValidUsername, normalizeUsername, usernameExists } from "@/user/auth/lib/username";
 import { ok, fail } from "@/user/auth/lib/api/response";
 import { logUserActivity } from "@/user/auth/lib/activity-log";
-import { syncJabiyenCustomer } from "@/user/jabiyen/customer-sync";
 
 const requiredName = (minimum: number) => z.string().trim().min(minimum).max(80);
 
@@ -91,20 +90,6 @@ export async function POST(req: NextRequest) {
       if (profileError?.code === "23505") return fail(`@${username} is already taken. Choose another username.`, 409, "USERNAME_ALREADY_EXISTS");
       console.error("[GOOGLE_PROFILE_SETUP_ERROR]", profileError);
       return fail("Profile setup failed", 500, "PROFILE_SETUP_FAILED");
-    }
-
-    try {
-      await syncJabiyenCustomer(user, {
-        first_name: firstName,
-        last_name: lastName,
-        display_name: `${firstName} ${lastName}`.trim(),
-        username,
-        date_of_birth: input.date_of_birth,
-        country_code: location.country,
-        account_status: "active",
-      });
-    } catch (syncError) {
-      console.error("[GOOGLE_SIGNUP_JABIYEN_CUSTOMER_SYNC_ERROR]", syncError);
     }
 
     const { data: updatedAuth, error: authUpdateError } = await admin.auth.admin.updateUserById(user.id, {

@@ -96,9 +96,9 @@ export const PLATFORM_PROJECT_CATALOG: Readonly<Record<string, PlatformProjectDe
         key: "website",
         name: "JABIYEN Website",
         type: "frontend",
-        status: "active",
-        allowedOrigins: ["https://jabiyen-website.vercel.app"],
-        scopes: ["catalog", "profile", "customer"],
+        status: "archived",
+        allowedOrigins: [],
+        scopes: [],
       },
       {
         key: "admin",

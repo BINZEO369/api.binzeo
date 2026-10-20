@@ -7,13 +7,19 @@ import { codeHash, createOpaqueCode, encryptSession } from "@/lib/auth/authoriza
 import { createClient } from "@/user/auth/lib/supabase/server";
 import { createPrivilegedClient, createPublicClient } from "@/lib/supabase/clients";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
-import { isRegisteredSsoCallback } from "@/lib/auth/sso-clients";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function expectedAdminCallback(): string | null {
+  const base = process.env.ADMIN_APP_URL;
+  if (!base) return null;
+  try { return `${new URL(base).origin}/auth/callback`; }
+  catch { return null; }
+}
+
 const bodySchema = z.object({
-  client_id: z.enum(["admin", "jabiyen"]),
+  client_id: z.enum(["admin"]),
   redirect_uri: z.string().url(),
   state: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/),
   code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43,128}$/),
@@ -24,7 +30,8 @@ export async function POST(request: Request) {
   let body: z.infer<typeof bodySchema>;
   try { body = bodySchema.parse(await request.json()); }
   catch { return apiError(requestId, "INVALID_REQUEST", "Invalid authorization request.", 400); }
-  if (!isRegisteredSsoCallback(body.client_id, body.redirect_uri)) {
+  const expectedRedirect = expectedAdminCallback();
+  if (!expectedRedirect || body.redirect_uri !== expectedRedirect) {
     return apiError(requestId, "REDIRECT_URI_MISMATCH", "The redirect URI is not allowlisted.", 400);
   }
   let publicClient;
