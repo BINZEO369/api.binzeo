@@ -13,6 +13,10 @@ import { recordProjectAccessEvent } from "@/lib/auth/project-access-events";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// This endpoint is called only by a trusted Central Auth server-side bridge.
+// The browser receives the resulting short-lived code through the allowlisted
+// redirect URI; access and refresh tokens are never placed in that redirect.
+
 const clientIdPattern = /^(?:admin|jabiyen|[a-z0-9][a-z0-9-]{0,62}:[a-z0-9][a-z0-9-]{0,62})$/;
 const bodySchema = z.object({
   client_id: z.string().regex(clientIdPattern),
@@ -119,7 +123,7 @@ export async function POST(request: Request) {
     const callback = new URL(redirectUri);
     callback.searchParams.set("code", code);
     callback.searchParams.set("state", body.state);
-    return apiSuccess({ redirect_url: callback.toString(), expires_in: 120 }, requestId);
+    return apiSuccess({ redirect_url: callback.toString(), expires_in: 120, connection: "one_step" }, requestId);
   } catch (error) {
     console.error("[OAUTH_AUTHORIZE_ERROR]", error instanceof Error ? error.message : "unknown");
     return apiError(requestId, "AUTHORIZATION_UNAVAILABLE", "Sign-in could not be completed. Please retry.", 503);
