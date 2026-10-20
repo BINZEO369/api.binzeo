@@ -311,6 +311,106 @@
         }
       }
     },
+    "/v1/admin/connected-apps": {
+      "get": {
+        "operationId": "get_v1_admin_connected_apps",
+        "tags": [
+          "admin"
+        ],
+        "summary": "GET /v1/admin/connected-apps",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_admin_connected_apps",
+        "tags": [
+          "admin"
+        ],
+        "summary": "POST /v1/admin/connected-apps",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
+    "/v1/admin/connected-apps/{id}": {
+      "patch": {
+        "operationId": "patch_v1_admin_connected_apps_id",
+        "tags": [
+          "admin"
+        ],
+        "summary": "PATCH /v1/admin/connected-apps/{id}",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
     "/v1/admin/dashboard/summary": {
       "get": {
         "operationId": "get_v1_admin_dashboard_summary",
@@ -2547,6 +2647,106 @@
           "user"
         ],
         "summary": "GET /v1/user/auth-methods",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
+    "/v1/user/connected-apps": {
+      "get": {
+        "operationId": "get_v1_user_connected_apps",
+        "tags": [
+          "user"
+        ],
+        "summary": "GET /v1/user/connected-apps",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_user_connected_apps",
+        "tags": [
+          "user"
+        ],
+        "summary": "POST /v1/user/connected-apps",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
+    "/v1/user/connected-apps/{appId}": {
+      "delete": {
+        "operationId": "delete_v1_user_connected_apps_appId",
+        "tags": [
+          "user"
+        ],
+        "summary": "DELETE /v1/user/connected-apps/{appId}",
         "security": [
           {
             "bearerAuth": []
