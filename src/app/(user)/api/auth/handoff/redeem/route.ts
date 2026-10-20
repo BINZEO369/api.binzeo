@@ -10,6 +10,7 @@ import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { isRegisteredSsoCallback } from "@/lib/auth/sso-clients";
 import { createClient } from "@/user/auth/lib/supabase/server";
 import { logAuthSessionShape } from "@/user/auth/lib/session-diagnostics";
+import { recordProjectAccessEvent } from "@/lib/auth/project-access-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest) {
     }
 
     logAuthSessionShape(request, "central_application_handoff", sessionData.session);
+    await recordProjectAccessEvent({ userId: consumed.user_id, clientId: body.client_id, eventType: "token_verified", request, metadata: { flow: "one_time_handoff" } });
     return apiSuccess({
       user: { id: consumed.user_id, email: consumed.email },
       session: sessionData.session,

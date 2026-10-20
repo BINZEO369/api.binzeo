@@ -27,19 +27,23 @@ export async function GET() {
     if (error) return fail("Connected applications could not be loaded", 500, "PROJECT_ACCESS_FETCH_FAILED");
 
     const events = (data ?? []) as unknown as ProjectAccessRow[];
-    const applications = Object.values(events.reduce<Record<string, { project_key: string; project_name: string; brand_name: string; client_key: string | null; client_name: string | null; last_used_at: string; last_ip: string | null; last_city: string | null; event_count: number }>>((acc, row) => {
+    const applicationsByKey = events.reduce<Record<string, { project_key: string; project_name: string; brand_name: string; client_key: string | null; client_name: string | null; last_used_at: string; last_ip: string | null; last_city: string | null; last_event_type: string; last_outcome: string; event_count: number; connected: boolean }>>((acc, row) => {
       const project = first(row.platform_projects);
       const client = first(row.platform_clients);
       const key = `${project?.project_key ?? "unknown"}:${client?.client_key ?? "unknown"}`;
+      const hasVerifiedConnection = (row.event_type === "token_verified" || row.event_type === "linked") && row.outcome === "success";
       const current = acc[key];
       if (!current) {
-        acc[key] = { project_key: project?.project_key ?? "unknown", project_name: project?.project_name ?? "Unknown application", brand_name: project?.brand_name ?? "Unknown", client_key: client?.client_key ?? null, client_name: client?.client_name ?? null, last_used_at: row.occurred_at, last_ip: row.ip_address, last_city: row.city, event_count: 1 };
+        acc[key] = { project_key: project?.project_key ?? "unknown", project_name: project?.project_name ?? "Unknown application", brand_name: project?.brand_name ?? "Unknown", client_key: client?.client_key ?? null, client_name: client?.client_name ?? null, last_used_at: row.occurred_at, last_ip: row.ip_address, last_city: row.city, last_event_type: row.event_type, last_outcome: row.outcome, event_count: 1, connected: hasVerifiedConnection };
       } else {
         current.event_count += 1;
-        if (new Date(row.occurred_at).getTime() > new Date(current.last_used_at).getTime()) { current.last_used_at = row.occurred_at; current.last_ip = row.ip_address; current.last_city = row.city; }
+        current.connected ||= hasVerifiedConnection;
+        if (new Date(row.occurred_at).getTime() > new Date(current.last_used_at).getTime()) { current.last_used_at = row.occurred_at; current.last_ip = row.ip_address; current.last_city = row.city; current.last_event_type = row.event_type; current.last_outcome = row.outcome; }
       }
       return acc;
-    }, {}));
+    }, {});
+    const applications = Object.values(applicationsByKey)
+      .filter((application) => application.connected);
 
     return ok({ applications, events });
   } catch (error) {
