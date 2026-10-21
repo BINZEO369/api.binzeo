@@ -17,12 +17,28 @@ export async function GET(request: Request) {
     return apiError(requestId, "RATE_LIMITED", "Too many requests. Try again later.", 429, { "Retry-After": String(limit.retryAfterSeconds) });
   }
 
+  const [{ data: profile }, { data: addresses }] = await Promise.all([
+    result.identity.supabase
+      .from("profiles")
+      .select("id,binzeo_user_id,first_name,middle_name,last_name,display_name,username,date_of_birth,gender,profile_photo_url,country_code,preferred_language,timezone,account_status,created_at,updated_at")
+      .eq("id", result.identity.user.id)
+      .maybeSingle(),
+    result.identity.supabase
+      .from("user_addresses")
+      .select("id,address_type,address_line_1,address_line_2,address_line_3,country_code,state_province,district,city,area,postal_code,latitude,longitude,is_primary,created_at,updated_at,location_accuracy_meters,location_source")
+      .eq("user_id", result.identity.user.id)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: false }),
+  ]);
+
   return apiSuccess({
     user: {
       id: result.identity.user.id,
       email: result.identity.user.email ?? null,
+      phone: result.identity.user.phone ?? null,
       email_verified: Boolean(result.identity.user.email_confirmed_at),
     },
-    profile: result.identity.profile,
+    profile: profile ?? result.identity.profile,
+    address: addresses?.[0] ?? null,
   }, requestId);
 }
