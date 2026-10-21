@@ -2,6 +2,23 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/user/auth/lib/supabase/server";
 import { ok, fail } from "@/user/auth/lib/api/response";
 
+type ConnectedAppRow = {
+  id: string;
+  slug: string;
+  name: string;
+  logo_url: string | null;
+  website_url: string | null;
+  is_active: boolean;
+  created_at: string;
+  user_connected_apps?: Array<{
+    id: string;
+    scopes: unknown;
+    connected_at: string;
+    disconnected_at: string | null;
+    revoked_at: string | null;
+  }>;
+};
+
 export async function GET() {
   try {
     const db = await createClient();
@@ -9,7 +26,7 @@ export async function GET() {
     if (!user) return fail("Unauthorized", 401, "UNAUTHORIZED");
     const { data, error } = await db.from("connected_apps").select("id,slug,name,logo_url,website_url,is_active,created_at,user_connected_apps(id,scopes,connected_at,disconnected_at,revoked_at)").eq("is_active", true).order("name");
     if (error) return fail(error.message, 400, "CONNECTED_APPS_FETCH_FAILED");
-    return ok({ apps: (data ?? []).map((app: any) => ({ ...app, connection: app.user_connected_apps?.[0] ?? null, user_connected_apps: undefined })) });
+    return ok({ apps: (data ?? []).map((app: ConnectedAppRow) => ({ ...app, connection: app.user_connected_apps?.[0] ?? null, user_connected_apps: undefined })) });
   } catch (error) {
     console.error("[CONNECTED_APPS_GET_ERROR]", error);
     return fail("Internal server error", 500, "INTERNAL_ERROR");
