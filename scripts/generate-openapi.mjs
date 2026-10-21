@@ -42,7 +42,7 @@ function needsBearer(route) {
   if (["/v1/auth/login", "/v1/auth/signup", "/v1/auth/check-email", "/v1/auth/check-username", "/v1/auth/google", "/v1/auth/google/callback", "/v1/auth/google/complete", "/v1/auth/google/setup", "/v1/auth/passkey/options", "/v1/auth/passkey/verify", "/v1/auth/password-reset/request", "/v1/auth/password-reset/verify", "/v1/auth/temporary-login", "/v1/auth/two-factor/verify", "/v1/auth/authorize"].includes(route)) return route === "/v1/auth/authorize";
   if (route.startsWith("/v1/public/")) return false;
   if (["/v1/countries", "/v1/sectors", "/v1/privacy/events", "/v1/privacy/consent"].includes(route)) return false;
-  return route.startsWith("/v1/admin/") || route.startsWith("/v1/user/") || route.startsWith("/v1/profile/") || route.startsWith("/v1/internal/");
+  return route === "/v1/me" || route.startsWith("/v1/me/") || route.startsWith("/v1/admin/") || route.startsWith("/v1/user/") || route.startsWith("/v1/profile/") || route.startsWith("/v1/internal/");
 }
 
 const paths = {};

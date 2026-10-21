@@ -21,6 +21,8 @@ export async function GET(request: Request) {
     user: {
       id: result.identity.user.id,
       email: result.identity.user.email ?? null,
+      phone: result.identity.user.phone ?? null,
+      created_at: result.identity.user.created_at,
       email_verified: Boolean(result.identity.user.email_confirmed_at),
     },
     profile: result.identity.profile,
