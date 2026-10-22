@@ -21,11 +21,14 @@ const validCheckout = {
       line2: "",
       district: "Dhaka",
       city: "Dhaka",
+      state: "Dhaka",
       postal_code: "",
       country_code: "BD",
     },
     delivery_notes: "",
   },
+  delivery_type: "Standard",
+  quoted_delivery_fee: 80,
   items: [{ product_id: 12, variant_id: 34, quantity: 2 }],
   website: "",
 };
@@ -86,5 +89,85 @@ describe("JABIYEN COD checkout RPC contract", () => {
     expect(args.p_items).toEqual([{ product_id: 12, variant_id: 34, quantity: 2 }]);
     expect(args).not.toHaveProperty("items");
     expect(args.p_access_token_hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(args.p_customer.delivery_type).toBe("Standard");
+    expect(args.p_customer.quoted_delivery_fee).toBe(80);
+    expect(args.p_customer.address).toMatchObject({ country_code: "BD", state: "Dhaka" });
+  });
+
+  it("returns the Central API BDT shipping quote for the selected saved address", async () => {
+    rpc.mockResolvedValueOnce({
+      data: {
+        ok: true,
+        quote: {
+          country_code: "BD",
+          country_name: "Bangladesh",
+          delivery_type: "Standard",
+          delivery_fee: 0,
+          free_shipping_minimum: 3000,
+          estimated_days_min: 2,
+          estimated_days_max: 3,
+          currency: "BDT",
+        },
+      },
+      error: null,
+    });
+    const request = new Request("https://api.example/api/shipping/quote?country_code=BD&state=Dhaka&city=Dhaka&delivery_type=Standard&subtotal=3500");
+
+    const response = await runJabiyenGateway(
+      createPublicApiHarness(),
+      request,
+      "/api/jabiyen-public",
+      ["shipping", "quote"],
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.success).toBe(true);
+    expect(payload.quote.currency).toBe("BDT");
+    expect(payload.quote.delivery_fee).toBe(0);
+    expect(rpc).toHaveBeenCalledWith("get_jabiyen_shipping_quote", {
+      p_country_code: "BD",
+      p_state: "Dhaka",
+      p_city: "Dhaka",
+      p_postal_code: "",
+      p_delivery_type: "Standard",
+      p_subtotal: 3500,
+    });
+  });
+
+  it("returns an explicit later-advised quote instead of a zero fee for an unmatched country", async () => {
+    rpc.mockResolvedValueOnce({
+      data: {
+        ok: true,
+        quote: {
+          country_code: "FR",
+          country_name: "FR",
+          delivery_type: "Standard",
+          delivery_fee: null,
+          estimated_days_min: null,
+          estimated_days_max: null,
+          quote_required: true,
+          message: "আপনাকে পরে জানানো হবে",
+          currency: "BDT",
+        },
+        error: null,
+      },
+      error: null,
+    });
+    const request = new Request("https://api.example/api/shipping/quote?country_code=FR&state=Ile-de-France&city=Paris&delivery_type=Standard&subtotal=1000");
+
+    const response = await runJabiyenGateway(
+      createPublicApiHarness(),
+      request,
+      "/api/jabiyen-public",
+      ["shipping", "quote"],
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.success).toBe(true);
+    expect(payload.quote.delivery_fee).toBeNull();
+    expect(payload.quote.quote_required).toBe(true);
+    expect(payload.quote.message).toBe("আপনাকে পরে জানানো হবে");
   });
 });

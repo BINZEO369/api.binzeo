@@ -28,12 +28,24 @@ const checkoutSchema = z.object({
       district: z.string().trim().max(100).optional().default(""),
       city: z.string().trim().max(100).optional().default(""),
       postal_code: z.string().trim().max(20).optional().default(""),
-      country_code: z.literal("BD").default("BD"),
+      state: z.string().trim().max(120).optional().default(""),
+      country_code: z.string().trim().regex(/^[A-Za-z]{2}$/).transform((value) => value.toUpperCase()).default("BD"),
     }),
     delivery_notes: z.string().trim().max(500).optional().default(""),
   }),
+  delivery_type: z.enum(["Standard", "Express"]).default("Standard"),
+  quoted_delivery_fee: z.number().finite().nonnegative().max(10000000).optional(),
   items: z.array(itemSchema).min(1).max(20),
   website: z.string().max(0).optional().default(""),
+});
+
+const shippingQuoteSchema = z.object({
+  country_code: z.string().trim().regex(/^[A-Za-z]{2}$/).transform((value) => value.toUpperCase()),
+  state: z.string().trim().max(120).optional().default(""),
+  city: z.string().trim().max(100).optional().default(""),
+  postal_code: z.string().trim().max(20).optional().default(""),
+  delivery_type: z.enum(["Standard", "Express"]).default("Standard"),
+  subtotal: z.coerce.number().finite().nonnegative().max(10000000),
 });
 
 function normalizePhone(phone: string) {
@@ -57,10 +69,40 @@ function clientFingerprint(req: express.Request, serviceKey: string) {
 
 function errorStatus(code: string) {
   if (code === "RATE_LIMITED") return 429;
-  if (["OUT_OF_STOCK", "PRODUCT_UNAVAILABLE", "VARIANT_UNAVAILABLE", "VARIANT_REQUIRED", "IDEMPOTENCY_CONFLICT"].includes(code)) return 409;
-  if (["INVALID_REQUEST", "INVALID_ITEMS", "INVALID_CUSTOMER", "INVALID_TOTAL", "INVALID_PRICE"].includes(code)) return 400;
+  if (["OUT_OF_STOCK", "PRODUCT_UNAVAILABLE", "VARIANT_UNAVAILABLE", "VARIANT_REQUIRED", "IDEMPOTENCY_CONFLICT", "SHIPPING_UNAVAILABLE", "SHIPPING_QUOTE_CHANGED"].includes(code)) return 409;
+  if (["INVALID_REQUEST", "INVALID_ITEMS", "INVALID_CUSTOMER", "INVALID_TOTAL", "INVALID_PRICE", "INVALID_SHIPPING_REQUEST"].includes(code)) return 400;
   return 503;
 }
+
+router.get("/api/shipping/quote", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (req.get("origin") && !allowlistedOrigin(req)) return res.status(403).json({ success: false, error: "Shipping quote origin is not allowed." });
+
+  const parsed = shippingQuoteSchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ success: false, error: "Please check your country, address, delivery type, and order subtotal." });
+  if (!process.env.JABIYEN_SUPABASE_SERVICE_ROLE_KEY) return res.status(503).json({ success: false, error: "Shipping prices are temporarily unavailable." });
+
+  try {
+    const db = getJabiyenAdminDatabase();
+    const { data, error } = await db.rpc("get_jabiyen_shipping_quote", {
+      p_country_code: parsed.data.country_code,
+      p_state: parsed.data.state,
+      p_city: parsed.data.city,
+      p_postal_code: parsed.data.postal_code,
+      p_delivery_type: parsed.data.delivery_type,
+      p_subtotal: parsed.data.subtotal,
+    });
+    if (error) {
+      console.error("[JABIYEN_SHIPPING_QUOTE]", error.code || "DB_ERROR");
+      return res.status(503).json({ success: false, error: "Shipping prices are temporarily unavailable." });
+    }
+    if (!data?.ok) return res.status(errorStatus(data?.code || "SHIPPING_UNAVAILABLE")).json({ success: false, code: data?.code || "SHIPPING_UNAVAILABLE", error: data?.message || "Delivery is not available for this address." });
+    return res.status(200).json({ success: true, quote: data.quote });
+  } catch (error) {
+    console.error("[JABIYEN_SHIPPING_QUOTE]", error instanceof Error ? error.name : "UNKNOWN");
+    return res.status(503).json({ success: false, error: "Shipping prices are temporarily unavailable." });
+  }
+});
 
 router.post("/api/orders", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
@@ -90,9 +132,11 @@ router.post("/api/orders", async (req, res) => {
         address: {
           ...parsed.data.customer.address,
           line1: parsed.data.customer.address.line1,
-          country_code: "BD",
+          country_code: parsed.data.customer.address.country_code,
         },
         delivery_notes: parsed.data.customer.delivery_notes || null,
+        delivery_type: parsed.data.delivery_type,
+        quoted_delivery_fee: parsed.data.quoted_delivery_fee ?? null,
       },
       p_items: parsed.data.items.map((item) => ({
         product_id: item.product_id,
@@ -110,7 +154,7 @@ router.post("/api/orders", async (req, res) => {
       success: true,
       order: data.order,
       access_token: parsed.data.access_token,
-      message: "Your cash-on-delivery order has been received. The JABIYEN team will confirm the delivery fee and payable total by phone before dispatch.",
+      message: "Your cash-on-delivery order has been received. The delivery fee and total are shown in your order details.",
     });
   } catch (error) {
     console.error("[JABIYEN_COD_ORDER_CREATE]", error instanceof Error ? error.name : "UNKNOWN");
