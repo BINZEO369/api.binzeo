@@ -2,6 +2,7 @@ import "server-only";
 import express from "express";
 import catalog from "./catalog";
 import publicCatalog from "./public-catalog";
+import checkout from "./checkout";
 import navigation from "./navigation";
 import content from "./content";
 import footerHome from "./footer-home";
@@ -13,6 +14,7 @@ app.use((req, _res, next) => {
   next();
 });
 app.use(express.json());
+app.use(checkout);
 app.use(publicCatalog);
 app.use(catalog);
 app.use(navigation);
