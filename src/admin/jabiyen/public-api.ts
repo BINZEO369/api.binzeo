@@ -13,7 +13,6 @@ app.use((req, _res, next) => {
   if (req.url.startsWith(prefix)) req.url = "/api" + req.url.slice(prefix.length);
   next();
 });
-app.use(express.json());
 app.use(checkout);
 app.use(publicCatalog);
 app.use(catalog);

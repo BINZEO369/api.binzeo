@@ -10,6 +10,17 @@ export async function runJabiyenGateway(
   path: string[],
 ) {
   const body = await request.text();
+  if (Buffer.byteLength(body, "utf8") > 64 * 1024) {
+    return Response.json({ success: false, error: "Request body is too large." }, { status: 413, headers: { "Cache-Control": "no-store" } });
+  }
+  let parsedBody: unknown;
+  if (body) {
+    try {
+      parsedBody = JSON.parse(body);
+    } catch {
+      return Response.json({ success: false, error: "Request body must be valid JSON." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    }
+  }
   // The legacy routers normalize /api/jabiyen-*/<path> to /api/<path>.
   // Accept both the clean canonical path and the old /api/<path> variant.
   const routePath = path[0] === "api" ? path.slice(1) : path;
@@ -19,7 +30,7 @@ export async function runJabiyenGateway(
     url,
     originalUrl: url,
     headers: Object.fromEntries(request.headers.entries()),
-    body: body ? JSON.parse(body) : undefined,
+    body: parsedBody as never,
   });
   const outgoing = createResponse({ eventEmitter: EventEmitter });
 
