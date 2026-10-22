@@ -5,6 +5,7 @@ import catalog from "./catalog";
 import navigation from "./navigation";
 import products from "./products";
 import variants from "./variants";
+import dataTables from "./data-tables";
 
 const app = express();
 app.use((req, _res, next) => {
@@ -18,5 +19,6 @@ app.use(catalog);
 app.use(navigation);
 app.use(products);
 app.use(variants);
+app.use(dataTables);
 
 export default app;
