@@ -19,14 +19,14 @@ const checkoutSchema = z.object({
   idempotency_key: z.string().uuid(),
   access_token: z.string().regex(ACCESS_TOKEN_RE),
   customer: z.object({
-    name: z.string().trim().min(2).max(120),
-    phone: z.string().trim().min(8).max(24).refine((value) => PHONE_RE.test(value.replace(/[\s().-]/g, "")), "Enter a Bangladesh mobile number"),
+    name: z.string().trim().max(120).optional().default(""),
+    phone: z.string().trim().max(24).optional().default(""),
     email: z.string().trim().max(254).refine((value) => !value || z.string().email().safeParse(value).success).optional().default(""),
     address: z.object({
-      line1: z.string().trim().min(4).max(240),
+      line1: z.string().trim().max(240).optional().default(""),
       line2: z.string().trim().max(240).optional().default(""),
-      district: z.string().trim().min(2).max(100),
-      city: z.string().trim().min(2).max(100),
+      district: z.string().trim().max(100).optional().default(""),
+      city: z.string().trim().max(100).optional().default(""),
       postal_code: z.string().trim().max(20).optional().default(""),
       country_code: z.literal("BD").default("BD"),
     }),
@@ -82,8 +82,10 @@ router.post("/api/orders", async (req, res) => {
       p_access_token_hash: accessTokenHash,
       p_request_fingerprint: clientFingerprint(req, serviceKey),
       p_customer: {
-        name: parsed.data.customer.name,
-        phone: normalizePhone(parsed.data.customer.phone),
+        name: parsed.data.customer.name.trim().length >= 2 ? parsed.data.customer.name : null,
+        phone: PHONE_RE.test(parsed.data.customer.phone.replace(/[\s().-]/g, ""))
+          ? normalizePhone(parsed.data.customer.phone)
+          : null,
         email: parsed.data.customer.email || null,
         address: {
           ...parsed.data.customer.address,
