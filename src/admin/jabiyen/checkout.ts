@@ -94,7 +94,7 @@ router.post("/api/orders", async (req, res) => {
         },
         delivery_notes: parsed.data.customer.delivery_notes || null,
       },
-      items: parsed.data.items.map((item) => ({
+      p_items: parsed.data.items.map((item) => ({
         product_id: item.product_id,
         variant_id: item.variant_id ?? null,
         quantity: item.quantity,
