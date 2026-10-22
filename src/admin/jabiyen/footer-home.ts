@@ -433,4 +433,22 @@ router.get('/api/home-showcase/complete', async (req, res) => {
        
 
 
+// Get active currency conversion rates (currency master is separate from country selector).
+router.get('/api/footer/currencies', async (_req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('currency_rates')
+            .select('currency_code,currency_name,currency_symbol,exchange_rate,is_active,is_default,updated_at')
+            .eq('is_active', true)
+            .order('is_default', { ascending: false })
+            .order('currency_code', { ascending: true })
+            .limit(100);
+
+        if (error) return res.status(500).json({ error: error.message });
+        res.json(data || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 export default router;
