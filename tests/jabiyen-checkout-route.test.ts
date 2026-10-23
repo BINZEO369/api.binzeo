@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runJabiyenGateway } from "@/admin/jabiyen/express-adapter";
 import checkout from "@/admin/jabiyen/checkout";
 
-const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
+const { rpc, authenticateBearerToken } = vi.hoisted(() => ({ rpc: vi.fn(), authenticateBearerToken: vi.fn() }));
 
 vi.mock("@/user/jabiyen/database", () => ({
   getJabiyenAdminDatabase: () => ({ rpc }),
 }));
+
+vi.mock("@/lib/auth/identity", () => ({ authenticateBearerToken }));
 
 const validCheckout = {
   idempotency_key: "550e8400-e29b-41d4-a716-446655440000",
@@ -15,7 +17,7 @@ const validCheckout = {
   customer: {
     name: "Test Customer",
     phone: "+8801712345678",
-    email: "",
+    email: "test@example.com",
     address: {
       line1: "12 Test Road",
       line2: "",
@@ -49,6 +51,10 @@ describe("JABIYEN COD checkout RPC contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.JABIYEN_SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
+    authenticateBearerToken.mockResolvedValue({
+      ok: true,
+      identity: { user: { id: "user-1", email: "test@example.com" } },
+    });
     rpc.mockResolvedValue({
       data: {
         ok: true,
@@ -66,7 +72,7 @@ describe("JABIYEN COD checkout RPC contract", () => {
   it("calls the database RPC with the declared p_items parameter and returns the private token", async () => {
     const request = new Request("https://api.example/api/orders", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", authorization: "Bearer central-test-token" },
       body: JSON.stringify(validCheckout),
     });
 

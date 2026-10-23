@@ -2,6 +2,7 @@ import "server-only";
 import { createHash, createHmac } from "node:crypto";
 import express from "express";
 import { z } from "zod";
+import { authenticateBearerToken } from "@/lib/auth/identity";
 import { getJabiyenAdminDatabase } from "@/user/jabiyen/database";
 
 const router = express.Router();
@@ -67,6 +68,12 @@ function clientFingerprint(req: express.Request, serviceKey: string) {
   return createHmac("sha256", serviceKey).update(raw).digest("hex");
 }
 
+async function authenticateOrderRequest(req: express.Request) {
+  return authenticateBearerToken(new Request("https://api.binzeo.invalid/jabiyen-order", {
+    headers: { Authorization: req.get("authorization") || "" },
+  }));
+}
+
 function errorStatus(code: string) {
   if (code === "RATE_LIMITED") return 429;
   if (["OUT_OF_STOCK", "PRODUCT_UNAVAILABLE", "VARIANT_UNAVAILABLE", "VARIANT_REQUIRED", "IDEMPOTENCY_CONFLICT", "SHIPPING_UNAVAILABLE", "SHIPPING_QUOTE_CHANGED"].includes(code)) return 409;
@@ -109,9 +116,16 @@ router.post("/api/orders", async (req, res) => {
   res.setHeader("Referrer-Policy", "no-referrer");
   if (req.get("origin") && !allowlistedOrigin(req)) return res.status(403).json({ success: false, error: "Checkout origin is not allowed." });
 
+  const identity = await authenticateOrderRequest(req);
+  if (!identity.ok) return res.status(identity.status).json({ success: false, code: identity.code, error: identity.message });
+
   const parsed = checkoutSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: "Please check your contact, delivery, and cart details." });
   if (parsed.data.website) return res.status(400).json({ success: false, error: "Checkout could not be completed." });
+  const accountEmail = identity.identity.user.email?.trim().toLowerCase() || "";
+  if (!accountEmail || parsed.data.customer.email.trim().toLowerCase() !== accountEmail) {
+    return res.status(403).json({ success: false, code: "ORDER_ACCOUNT_MISMATCH", error: "Your order email must match your signed-in account." });
+  }
 
   const serviceKey = process.env.JABIYEN_SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return res.status(503).json({ success: false, error: "Checkout is temporarily unavailable. Please call the store." });
@@ -167,8 +181,11 @@ router.get("/api/orders/:orderNumber", async (req, res) => {
   res.setHeader("Referrer-Policy", "no-referrer");
   if (req.get("origin") && !allowlistedOrigin(req)) return res.status(403).json({ success: false, error: "Order lookup origin is not allowed." });
 
+  const identity = await authenticateOrderRequest(req);
+  if (!identity.ok) return res.status(identity.status).json({ success: false, code: identity.code, error: identity.message });
+
   const orderNumber = typeof req.params.orderNumber === "string" ? req.params.orderNumber.toUpperCase() : "";
-  const token = req.get("authorization")?.match(/^Bearer\s+([A-Za-z0-9_-]{43,64})$/i)?.[1] || "";
+  const token = req.get("x-order-access-token")?.match(/^([A-Za-z0-9_-]{43,64})$/)?.[1] || "";
   if (!ORDER_NUMBER_RE.test(orderNumber) || !ACCESS_TOKEN_RE.test(token)) {
     return res.status(404).json({ success: false, error: "Order not found." });
   }
@@ -184,7 +201,9 @@ router.get("/api/orders/:orderNumber", async (req, res) => {
       console.error("[JABIYEN_COD_ORDER_LOOKUP]", error.code || "DB_ERROR");
       return res.status(503).json({ success: false, error: "Order status is temporarily unavailable." });
     }
-    if (!data) return res.status(404).json({ success: false, error: "Order not found." });
+    const accountEmail = identity.identity.user.email?.trim().toLowerCase() || "";
+    const orderEmail = typeof data?.customer?.email === "string" ? data.customer.email.trim().toLowerCase() : "";
+    if (!data || !accountEmail || orderEmail !== accountEmail) return res.status(404).json({ success: false, error: "Order not found." });
     return res.status(200).json({ success: true, order: data });
   } catch (error) {
     console.error("[JABIYEN_COD_ORDER_LOOKUP]", error instanceof Error ? error.name : "UNKNOWN");
