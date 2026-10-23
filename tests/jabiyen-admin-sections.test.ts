@@ -150,6 +150,34 @@ describe("JABIYEN admin content sections", () => {
     }
   });
 
+  it("returns a failed save response and logs safe database diagnostics when a write is rejected", async () => {
+    const query = createQuery();
+    query.single = vi.fn(async () => ({
+      data: null,
+      error: { code: "23502", message: 'null value in column "header_title" violates not-null constraint', details: "A required content value was missing.", hint: null },
+    }));
+    mocks.from.mockReturnValueOnce(query);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { response, body } = await request(["admin", "tables", "about_us"], {
+        method: "POST",
+        body: { header_title: "test title", section_description: "test description" },
+      });
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(body.error).toContain("could not be created");
+      expect(errorLog).toHaveBeenCalledWith("[JABIYEN_ADMIN_SECTION_WRITE_FAILED]", expect.objectContaining({
+        operation: "create",
+        section: "about_us",
+        code: "23502",
+        message: expect.stringContaining("not-null constraint"),
+      }));
+      expect(JSON.stringify(errorLog.mock.calls)).not.toContain("test title");
+    } finally {
+      errorLog.mockRestore();
+    }
+  });
+
   it("rejects attempts to edit fields outside the explicit allowlist", async () => {
     const { response, body } = await request(["admin", "tables", "about_us", "12"], {
       method: "PATCH",
