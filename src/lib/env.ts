@@ -31,6 +31,8 @@ export function getAllowedOrigins(): Set<string> {
   // Current deployed app origins; future/custom origins are added through Vercel env.
   origins.add("https://auth-binzeo.vercel.app");
   origins.add("https://admin-binzeo.vercel.app");
+  origins.add("https://jabiyen-website.vercel.app");
+  origins.add("https://jabiyen-admin.vercel.app");
   if (process.env.NODE_ENV !== "production") {
     origins.add("http://localhost:3000");
     origins.add("http://127.0.0.1:3000");
