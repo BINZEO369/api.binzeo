@@ -1,3 +1,2 @@
-import { getAdminApiContext, getAdminDataClient } from "@/admin/binzeo/lib/admin";
-import { ok, fail } from "@/admin/binzeo/lib/api/response";
-export async function GET(){const {user,access}=await getAdminApiContext();if(!user||!access)return fail("Forbidden",403,"ADMIN_REQUIRED");if(!access.roles?.includes("super_admin")&&!access.permissions?.includes("audit.read"))return fail("Missing audit.read permission",403,"PERMISSION_DENIED");const db=await getAdminDataClient(access);const {data,error}=await db.from("admin_activity_logs").select("id,admin_user_id,action_type,target_type,target_id,description,ip_address,metadata,created_at").order("created_at",{ascending:false}).limit(100);if(error)return fail(error.message,400,"AUDIT_FETCH_FAILED");return ok({logs:data??[]});}
+/** Next.js route adapter; site-specific implementation is kept under src/sites. */
+export { GET } from "@/sites/binzeo/server/routes/api/admin/audit/route";

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const routeRoot = path.join(root, "src/app");
-const output = path.join(root, "src/openapi.generated.json");
+const output = path.join(root, "src/platform/openapi.generated.json");
 const methods = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
 async function walk(dir) {
@@ -28,17 +28,34 @@ function apiPath(file) {
     .replace(/^\[\.\.\.(.+)\]$/, "{$1}")
     .replace(/^\[(.+)\]$/, "{$1}"));
   if (apiIndex < 0 && segments[0] !== "v1") return null;
-  return apiIndex >= 0
-    ? `/v1${segments.length ? `/${segments.join("/")}` : ""}`
-    : `/${segments.join("/")}`;
+  if (apiIndex < 0 || segments[0] === "v1") return `/${segments.join("/")}`;
+  return `/v1${segments.length ? `/${segments.join("/")}` : ""}`;
+}
+
+function exportedMethods(source) {
+  const found = new Set();
+  for (const match of source.matchAll(/export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b/g)) found.add(match[1]);
+  for (const match of source.matchAll(/export\s+const\s+(GET|POST|PUT|PATCH|DELETE)\s*=/g)) found.add(match[1]);
+  for (const match of source.matchAll(/export\s*\{([^}]+)\}\s*from\s*["'][^"']+["']/g)) {
+    for (const item of match[1].split(",")) {
+      const exportedName = item.trim().split(/\s+as\s+/i).at(-1);
+      if (methods.has(exportedName)) found.add(exportedName);
+    }
+  }
+  return [...found];
 }
 
 function tagFor(route) {
+  if (route.startsWith("/v1/projects/jabiyen/admin/")) return "jabiyen-admin";
+  if (route.startsWith("/v1/projects/jabiyen/public/")) return "jabiyen-public";
   return route.split("/").filter(Boolean)[1] ?? "system";
 }
 
 function needsBearer(route) {
   if (route === "/v1/auth/token") return false;
+  if (route === "/v1/projects/jabiyen/admin/admin/login") return false;
+  if (route.startsWith("/v1/projects/jabiyen/admin/")) return true;
+  if (route.startsWith("/v1/projects/jabiyen/public/")) return false;
   if (["/v1/auth/login", "/v1/auth/signup", "/v1/auth/check-email", "/v1/auth/check-username", "/v1/auth/google", "/v1/auth/google/callback", "/v1/auth/google/complete", "/v1/auth/google/setup", "/v1/auth/passkey/options", "/v1/auth/passkey/verify", "/v1/auth/password-reset/request", "/v1/auth/password-reset/verify", "/v1/auth/temporary-login", "/v1/auth/two-factor/verify", "/v1/auth/authorize"].includes(route)) return route === "/v1/auth/authorize";
   if (route.startsWith("/v1/public/")) return false;
   if (["/v1/countries", "/v1/sectors", "/v1/privacy/events", "/v1/privacy/consent"].includes(route)) return false;
@@ -46,11 +63,13 @@ function needsBearer(route) {
 }
 
 const paths = {};
-for (const file of (await walk(routeRoot)).sort()) {
+const files = (await walk(routeRoot)).sort();
+for (const file of files) {
   const source = await readFile(file, "utf8");
   const route = apiPath(file);
   if (!route) continue;
-  const exported = [...source.matchAll(/export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b/g)].map((match) => match[1]);
+  const exported = exportedMethods(source);
+  if (!exported.length) throw new Error(`No HTTP method export found in route adapter: ${path.relative(root, file)}`);
   paths[route] ??= {};
   for (const method of exported) {
     if (!methods.has(method)) continue;
@@ -88,4 +107,4 @@ const document = {
   components: { securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "Supabase JWT" } } },
 };
 await writeFile(output, `${JSON.stringify(document, null, 2)}\n`);
-console.log(`Generated ${Object.keys(paths).length} OpenAPI paths from ${((await walk(routeRoot)).length)} route files.`);
+console.log(`Generated ${Object.keys(paths).length} OpenAPI paths from ${files.length} route files.`);

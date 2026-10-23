@@ -8,9 +8,38 @@ Central, versioned server-side API for the BINZEO ecosystem. `auth.binzeo` remai
 - `auth` and `admin` are registered UI clients. Their `/api/*` paths are unconditionally rewritten to this service; `CENTRAL_API_BASE_URL` is required at build/runtime.
 - Frontend repositories contain no local API route handlers, Supabase clients, service-role secrets or local-database fallback. If the Central API is unavailable or unconfigured, pages fail closed with HTTP 503 and API requests fail; neither frontend reconnects to Supabase independently.
 - This repository is the single source of truth for the shared Supabase schema and migrations. The frontend repositories contain no database migrations or server-side database scripts.
-- Multi-project metadata is held in `platform_projects`, `platform_clients`, `platform_provider_connections` and `platform_project_access`. The typed catalog in `src/shared/platform/registry.ts` maps enabled projects/providers to server-only environment-variable names without storing secret values in the database.
+- Multi-project metadata is held in `platform_projects`, `platform_clients`, `platform_provider_connections` and `platform_project_access`. The typed catalog in `src/platform/registry/registry.ts` maps enabled projects/providers to server-only environment-variable names without storing secret values in the database.
 - Authenticated server-rendered profile/dashboard reads and admin dashboard, user, Auth-user directory, deleted-email archive, audit, security, settings, table-browser, privacy-analytics, marketing, birthdays and occasion-email operations use the Central API exclusively.
 - Canonical public paths are `/v1/*`; legacy handler paths are internal rewrite targets. OpenAPI is generated from route handlers and served at `/v1/openapi`.
+
+## Repository layout
+
+`src/app` is intentionally kept as the small Next.js routing layer: each `route.ts` only re-exports HTTP methods from its owning site module and keeps framework-required route config. Business logic is not duplicated there.
+
+```text
+src/
+  app/                         # Next.js route adapters; public URL map only
+  platform/                    # genuinely shared server code
+    auth/ http/ security/       # identity primitives, response/request policy
+    database/supabase/          # shared Supabase client factories
+    registry/                  # project/client/provider registry
+    server/routes/              # health, OpenAPI and platform endpoints
+    openapi.generated.json     # generated API contract
+  sites/
+    binzeo/                     # BINZEO identity, user and admin implementation
+      auth/ admin/ server/routes/
+    jabiyen/                    # JABIYEN-specific implementation
+      admin/ user/ server/routes/
+  proxy.ts                      # Next.js-required request-policy entrypoint
+supabase/
+  migrations/                  # central BINZEO database migrations (CLI default)
+  jabiyen/migrations/          # separate JABIYEN database migrations
+tests/
+  platform/                    # shared platform tests
+  sites/binzeo/ sites/jabiyen/ # site-owned tests
+```
+
+**Ownership rule:** site-specific APIs, auth and business rules belong under `src/sites/<site-key>/`; shared code belongs under `src/platform/` only when used by multiple sites. `src/app/` remains organized by Next.js URL and route-group constraints. Put each endpoint's implementation in its site module and keep its App Router file as a small adapter. Tests mirror the same platform/site ownership.
 
 ## Centralized route inventory
 
@@ -24,7 +53,7 @@ Route families include auth and account security; profiles, users, addresses, co
 2. Register Google, Facebook, Apple, SMTP, ImageKit or other integrations in `platform_provider_connections` using environment-variable **names only**; put actual credentials in the Central API Vercel environment.
 3. Add project-scoped roles and permissions in `platform_project_access`; do not overload global `admin_access` for a new brand.
 4. Add the exact HTTPS origins and redirect URIs, then add a typed server adapter before enabling routes.
-5. Keep all brand-specific routes under an explicit namespace such as `/v1/projects/{project_key}/...`; never accept arbitrary database targets or client-provided secret references.
+5. Create `src/sites/<project-key>/` with only that project's implementation and tests. Add a thin `src/app/` adapter for each public route and keep the public URL under an explicit namespace such as `/v1/projects/{project_key}/...`; never accept arbitrary database targets or client-provided secret references.
 
 ## Central SSO
 
@@ -52,7 +81,7 @@ npm test
 npm run build
 ```
 
-The build generates `src/openapi.generated.json`. Tests cover registry and admin-table allowlisting, PKCE code primitives, encrypted session payloads and OpenAPI-to-route completeness. Tests do not write to production Supabase.
+The build generates `src/platform/openapi.generated.json`. Tests are grouped by platform/site and cover registry and admin-table allowlisting, PKCE code primitives, encrypted session payloads and OpenAPI-to-route completeness. Tests do not write to production Supabase.
 
 ## Manual deployment and cutover
 
@@ -67,7 +96,7 @@ Deploy this repository as the dedicated `api.binzeo` Vercel project (Node.js 22)
 
 ## JABIYEN centralization
 
-JABIYEN Website and JABIYEN Admin no longer deploy local `api/index.js` servers. Their public content and admin CRUD requests are served by the Central API through bounded ownership namespaces at `src/admin/jabiyen` and `src/user/jabiyen`:
+JABIYEN Website and JABIYEN Admin no longer deploy local `api/index.js` servers. Their public content and admin CRUD requests are served by the Central API through bounded ownership namespaces under `src/sites/jabiyen`:
 
 - `/v1/projects/jabiyen/public/*` — canonical public JABIYEN catalog/content APIs
 - `/v1/projects/jabiyen/admin/*` — canonical authenticated JABIYEN admin CRUD APIs
@@ -75,13 +104,18 @@ JABIYEN Website and JABIYEN Admin no longer deploy local `api/index.js` servers.
 - `/api/jabiyen-admin/*` — authenticated JABIYEN admin CRUD APIs
 - `/v1/auth/*`, `/v1/user/*`, `/v1/admin/*` — Central BINZEO authentication, user and admin APIs
 
-The `/api/jabiyen-*` paths are compatibility aliases only; they are rewritten to the canonical Next.js route handlers. The source ownership boundaries are explicit:
+The `/api/jabiyen-*` paths are compatibility aliases only; they are rewritten to the canonical Next.js route adapters. The source ownership boundaries are explicit:
 ```text
-src/admin/binzeo/       # Central BINZEO admin modules
-src/admin/jabiyen/      # JABIYEN admin/catalog/content handlers
-src/user/auth/          # Central Auth identity and security modules
-src/user/jabiyen/       # JABIYEN user/customer/database/domain modules
-src/shared/platform/    # cross-project registry and platform contracts
+src/sites/binzeo/admin/               # BINZEO admin modules and data access
+src/sites/binzeo/auth/                # BINZEO identity, profile and security
+src/sites/binzeo/server/routes/       # BINZEO API implementation modules
+src/sites/jabiyen/admin/              # JABIYEN admin/catalog/order handlers
+src/sites/jabiyen/user/               # JABIYEN config/database/domain modules
+src/sites/jabiyen/server/routes/      # JABIYEN API implementation modules
+src/platform/auth/ http/ security/    # shared request/auth primitives
+src/platform/database/supabase/       # shared Supabase client factories
+src/platform/registry/                # cross-project registry/contracts
+src/app/                              # thin Next.js URL-to-module adapters
 ```
 
 The JABIYEN Supabase project remains a separate database. Only the Central API may access it. Add these Vercel environment variables to `api-binzeo` before deploying the gateway:
@@ -96,4 +130,4 @@ The Central Auth variables remain required as before:
 - `AUTH_SUPABASE_ANON_KEY`
 - `AUTH_SUPABASE_SERVICE_ROLE_KEY`
 
-Admin authorization is verified against Central Auth `admin_access`; the JABIYEN database is used only for JABIYEN commerce/content data. No JABIYEN password, signup, or local auth route remains in the JABIYEN repositories.
+JABIYEN commerce/content data is accessed only by the Central API. The current JABIYEN admin sign-in and active-admin lookup implementation lives under `src/sites/jabiyen/admin/`; keep its authorization authority and role policy aligned with the intended central security model when changing it.

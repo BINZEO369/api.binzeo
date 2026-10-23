@@ -1,13 +1,5 @@
-import { apiSuccess } from "@/lib/http/response";
-import { getRequestId } from "@/lib/http/request-id";
+/** Next.js route adapter; site-specific implementation is kept under src/sites. */
+export { GET } from "@/platform/server/routes/v1/health/route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-export async function GET(request: Request) {
-  const requestId = getRequestId(request);
-  return apiSuccess(
-    { service: "api.binzeo", status: "ok", time: new Date().toISOString() },
-    requestId,
-  );
-}
