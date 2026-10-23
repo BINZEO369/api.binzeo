@@ -52,3 +52,7 @@ The admin console’s data-table and privacy-analytics pages send only table ide
 ## Current integrations
 
 `auth` and `admin` are client/application registrations sharing the current identity Supabase reference. They are not separate database projects. The admin frontend's API files that only proxied to `auth.binzeo` are consolidated onto the single identity/admin handler. New product integrations receive a distinct allowlisted adapter and environment secret reference; no client may specify a database URL or service key.
+
+## Central payments
+
+Stripe checkout, payment records, and webhook processing belong to the central `api.binzeo` service and `supabase/migrations`. Payment amounts must come from a trusted server-side site adapter and immutable central payment requests; browser requests carry only a request ID and idempotency key. Central Auth supplies customer identity, the server holds Stripe secrets, and a verified webhook—not a success redirect—confirms payment. See [Central payments](central-payments.md) for the API contract and the disabled-by-default setup.
