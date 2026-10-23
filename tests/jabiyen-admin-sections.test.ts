@@ -111,13 +111,13 @@ describe("JABIYEN admin content sections", () => {
     expect(body.rows).toEqual([{ id: 12, header_title: "About" }]);
   });
 
-  it("shows order rows while omitting customer access-token hashes", async () => {
+  it("shows all order columns, including customer access-token hashes", async () => {
     const query = createQuery();
     mocks.from.mockReturnValueOnce(query);
     const { response, body } = await request(["admin", "tables", "orders"]);
     expect(response.status).toBe(200);
-    expect(body.columns.map((column: { name: string }) => column.name)).not.toContain("access_token_hash");
-    expect(query.select.mock.calls[0][0]).not.toContain("access_token_hash");
+    expect(body.columns.map((column: { name: string }) => column.name)).toContain("access_token_hash");
+    expect(query.select.mock.calls[0][0]).toContain("access_token_hash");
   });
 
   it.each([

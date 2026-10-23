@@ -5,7 +5,6 @@ export type JabiyenContentSectionSpec = {
   group: string;
   path: string;
   editableColumns: string[];
-  hiddenColumns?: string[];
 };
 
 /**
@@ -183,12 +182,12 @@ export const JABIYEN_CONTENT_SECTION_SPECS: JabiyenContentSectionSpec[] = [
     editableColumns: [],
   },
   {
-    name: "checkout_sessions", title: "Checkout Sessions", description: "Read-only checkout records; idempotency and request fingerprint fields are hidden.", group: "Orders & checkout", path: "/admin/database/checkout_sessions",
-    editableColumns: [], hiddenColumns: ["idempotency_key", "request_fingerprint"],
+    name: "checkout_sessions", title: "Checkout Sessions", description: "Read-only checkout records.", group: "Orders & checkout", path: "/admin/database/checkout_sessions",
+    editableColumns: [],
   },
   {
-    name: "orders", title: "Orders", description: "Read-only order records; customer access-token hashes are hidden.", group: "Orders & checkout", path: "/admin/database/orders",
-    editableColumns: [], hiddenColumns: ["access_token_hash"],
+    name: "orders", title: "Orders", description: "Read-only order records.", group: "Orders & checkout", path: "/admin/database/orders",
+    editableColumns: [],
   },
   {
     name: "order_items", title: "Order Items", description: "Read-only order line-item records.", group: "Orders & checkout", path: "/admin/database/order_items",

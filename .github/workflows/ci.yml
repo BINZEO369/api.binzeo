@@ -30,5 +30,8 @@ jobs:
         env:
           AUTH_SUPABASE_URL: https://example.supabase.co
           AUTH_SUPABASE_ANON_KEY: ci-placeholder
+          JABIYEN_SUPABASE_URL: https://example.supabase.co
+          JABIYEN_SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          JABIYEN_SUPABASE_ANON_KEY: ci-placeholder
           API_ALLOWED_ORIGINS: https://auth-binzeo.vercel.app,https://admin-binzeo.vercel.app
           API_ENVIRONMENT: preview

@@ -47,7 +47,7 @@ function sectionResponse(section: (typeof sections)[number]) {
     description: section.description,
     group: section.group,
     path: section.path,
-    columns: section.table.columns.filter((column) => !section.hiddenColumns?.includes(column.name)),
+    columns: section.table.columns,
     primaryKeys: section.table.primaryKeys,
     editableColumns: section.editableColumns,
     canWrite: section.editableColumns.length > 0,
@@ -234,8 +234,7 @@ router.get("/api/admin/tables/:table", adminAuth, async (req, res) => {
   const pageSize = Number.isFinite(requestedPageSize) ? Math.min(100, Math.max(10, requestedPageSize)) : 25;
   const from = (page - 1) * pageSize;
   try {
-    const visibleColumns = section.table.columns.filter((column) => !section.hiddenColumns?.includes(column.name));
-    let query = supabase.from(section.table.name as never).select(visibleColumns.map((column) => column.name).join(","), { count: "exact" });
+    let query = supabase.from(section.table.name as never).select(section.table.columns.map((column) => column.name).join(","), { count: "exact" });
     const sortColumn = section.table.columns.some((column) => column.name === "sort_order") ? "sort_order" : section.table.primaryKeys[0];
     query = query.order(sortColumn, { ascending: true });
     if (sortColumn !== section.table.primaryKeys[0]) query = query.order(section.table.primaryKeys[0], { ascending: true });
