@@ -50,6 +50,10 @@ export async function runJabiyenGateway(
     }
   });
 
+  if (!outgoing._isEndCalled()) {
+    return Response.json({ success: false, error: "JABIYEN admin route not found." }, { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
+
   const raw = outgoing._getData();
   const status = outgoing.statusCode || 200;
   const headers = new Headers();
