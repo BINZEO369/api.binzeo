@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { authenticateBearerToken } from "@/binzeo/auth/identity";
+import { authenticatePaymentRequest } from "@/binzeo/auth/identity";
 import { getPaymentRequestStatus, PaymentServiceError } from "@/binzeo/payments/service";
 import { apiError, apiSuccess } from "@/common/http/response";
 import { getRequestId } from "@/common/http/request-id";
@@ -9,7 +9,7 @@ const idSchema = z.string().uuid();
 
 export async function GET(request: Request, context: { params: Promise<{ requestId: string }> }) {
   const requestId = getRequestId(request);
-  const auth = await authenticateBearerToken(request);
+  const auth = await authenticatePaymentRequest(request);
   if (!auth.ok) return apiError(requestId, auth.code, auth.message, auth.status);
 
   const rateLimit = await consumeRateLimit(auth.identity.supabase, request, "v1-payment-status", 60);

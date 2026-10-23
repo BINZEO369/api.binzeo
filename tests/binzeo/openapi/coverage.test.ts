@@ -54,6 +54,7 @@ describe("OpenAPI route coverage", () => {
     expect(paths["/v1/projects/jabiyen/public/{path}"]).toHaveProperty("get");
     expect(paths["/v1/projects/jabiyen/admin/{path}"]).toHaveProperty("post");
     expect(paths["/v1/payments/checkout-sessions"].post).toHaveProperty("security");
+    expect(paths["/v1/payments/jabiyen/checkout-sessions"].post).toHaveProperty("security");
     expect(paths["/v1/payments/requests/{requestId}"].get).toHaveProperty("security");
     expect(paths["/v1/payments/stripe/webhook"].post).not.toHaveProperty("security");
   });

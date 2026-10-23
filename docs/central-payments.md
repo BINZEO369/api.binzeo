@@ -1,39 +1,53 @@
 # Central payments
 
-## Scope and deployment state
+## Customer flow and ownership
 
-The payment service belongs to the central `api.binzeo` server and the shared Central Auth Supabase project. Its schema is in `supabase/migrations`; it does not belong in `supabase/jabiyen/migrations` or in an individual website repository. One central Stripe account is used initially. The central provider metadata is configured for the user-confirmed US business country and USD currency in live mode, but the provider and every site remain disabled until a live Stripe account, credentials, account eligibility, and a trusted site adapter are verified.
+The customer places an order on JABIYEN. Its order-confirmation screen contains only a link to `https://auth-binzeo.vercel.app/payment?order_number=...`; JABIYEN does not collect card data, create Stripe sessions, or store Stripe payment records. The customer signs in to Central Auth, sees the order number on the Auth payment page, and clicks **Pay securely with Stripe**. Auth sends only the order number and the Central Auth session to `api.binzeo`; the central server verifies the order and creates a hosted Stripe Checkout Session. Stripe card entry happens on Stripe's domain.
 
-This is a backend foundation only. No website is connected in this phase, and no live charge can be made. JABIYEN is not ready to be enabled: its current checkout is cash-on-delivery, and delivery fee/total may be unknown when the order is created. A JABIYEN adapter must wait until its final payable amount is fixed server-side.
+All payment configuration, requests, attempts, Stripe Customer mappings, and webhook inbox records are stored in the central Auth Supabase database. JABIYEN's separate database remains the source of its order, item, shipping-fee, and admin-managed currency-rate data; the central adapter reads those values server-side and never writes Stripe payment state to JABIYEN.
 
-## Trust and amount rules
+The central payment provider is configured for the user-selected United States / USD setup. The connected Stripe MCP account is a test sandbox, not the user's live merchant account. Production charges remain blocked by `STRIPE_LIVE_CHARGES_ENABLED=false` until the real live Stripe credentials and webhook signing secret are added to the central Vercel project and the gate is intentionally changed.
 
-The customer must present a Central Auth bearer token. The API verifies it through `authenticateBearerToken` and takes the user ID, verified email, and profile name from the returned identity. Client-supplied user IDs, names, emails, prices, currencies, Stripe IDs, and payment statuses are rejected or ignored; checkout accepts only a centrally-created `payment_request_id` and an idempotency key.
+## Server-side trust and amount rules
 
-A trusted site adapter in the central server creates a payment request only after it has loaded the site's order from an authoritative server-side source, confirmed that the order belongs to the authenticated user, finalized shipping/tax/discounts, and computed the total. It calls the server-only `createPaymentRequest` helper; there is intentionally no browser-facing endpoint that accepts arbitrary totals. Each line-item snapshot is checked against the stored total and then locked by a database trigger. Future websites should add a small site-specific order adapter which calls this common service rather than implementing Stripe separately.
+The Auth payment page is protected by Central Auth. The central API accepts the Auth app's signed session only from the configured `AUTH_APP_URL` origin (or an authenticated Central Auth bearer token for server integrations). It derives the user ID, verified email, and profile name from Central Auth; the browser cannot submit a price, currency, customer identity, Stripe ID, or return URL.
 
-The payment service creates/reuses a Stripe Customer using the verified Central Auth email and profile name. It does not store card data, request saved-card consent, or set up reusable payment methods. The user's internal Central Auth ID is used for ownership and limited Stripe metadata.
+For JABIYEN, the central adapter loads the order by order number, matches the order email to the signed-in account's verified email, rejects cancelled/returned or already-collected orders, requires confirmed delivery fees, and checks stored item line totals, subtotal, shipping, and total arithmetically. It converts the finalized BDT total to USD using the active JABIYEN USD rate and saves an immutable USD amount and order snapshot in the central payment tables. If any input is missing, inconsistent, unpaid status is not clear, or the rate is unavailable, checkout fails closed.
+
+The payment service uses the verified Central Auth email and profile name to create/reuse a Stripe Customer. It does not store card data or set up reusable payment methods. Only a verified Stripe webhook can mark a request paid; a return redirect is not proof of payment.
 
 ## API contract
 
-- `POST /v1/payments/checkout-sessions` — bearer-authenticated; body: `{ "payment_request_id": "<uuid>", "idempotency_key": "<uuid>" }`. Returns a Stripe-hosted Checkout URL. No amount, user identity, or return URL is accepted from the browser.
-- `GET /v1/payments/requests/{requestId}` — bearer-authenticated; returns status only to the owner of the payment request.
-- `POST /v1/payments/stripe/webhook` — no bearer token; requires the Stripe `Stripe-Signature` header and verifies the unmodified raw body using `STRIPE_WEBHOOK_SECRET`.
+- `POST /v1/payments/jabiyen/checkout-sessions` — Authenticated by the Central Auth session or bearer identity. Accepts only `{ "order_number": "..." }`; returns a Stripe-hosted Checkout URL after the central adapter verifies the order.
+- `POST /v1/payments/checkout-sessions` — Trusted server-side integrations using an already-created central payment request; accepts only its request ID and idempotency key.
+- `GET /v1/payments/requests/{requestId}` — Authenticated, owner-scoped payment status.
+- `POST /v1/payments/stripe/webhook` — Stripe signature-authenticated endpoint; verifies the unmodified raw body using `STRIPE_WEBHOOK_SECRET`.
 
-The return URL is built from a site's registered `platform_projects.allowed_origins` plus relative paths in `payment_site_settings`; it is never taken from the checkout request. A success redirect is not evidence of payment. Only a verified Stripe webhook can mark a payment request paid, and Stripe amount/currency are checked against the immutable server-side snapshot before the database changes.
+The central API constructs success/cancel return URLs from `payment_site_settings` and registered `platform_projects.allowed_origins`; neither is accepted from the browser. Stripe Checkout is hosted at `checkout.stripe.com`.
 
 ## Central database tables
 
-`payment_provider_settings` holds only non-secret global mode, enabled state, merchant country, and default currency. `payment_site_settings` controls per-site enablement, currency, and safe relative return paths. `payment_requests` contains the owner, site/order reference, final amount in Stripe minor units, currency, and immutable line-item snapshot. `payment_attempts` records Checkout Session IDs and statuses. `payment_customers` maps Central Auth users to Stripe Customer IDs and account email/name snapshots; it contains no payment methods. `payment_webhook_events` is a deduplicated webhook inbox with processing leases; raw webhook payloads are not stored.
+`payment_provider_settings` stores only non-secret global mode, enablement, merchant country, and default currency. `payment_site_settings` controls per-site enablement, currency, and safe relative return paths. `payment_requests` stores owner, site/order reference, final amount in Stripe minor units, currency, and immutable line-item snapshot. `payment_attempts` stores Checkout Session IDs and statuses. `payment_customers` maps Central Auth users to Stripe Customer IDs and account email/name snapshots. `payment_webhook_events` is an idempotent webhook inbox; raw payloads and card data are not stored.
 
-All payment tables have RLS enabled and are accessible only to the central server's `service_role`. No Stripe secret value is stored in the database, registry, response, or logs.
+All payment tables have RLS enabled and are restricted to the central server's `service_role`. Stripe secret values are never stored in the database, registry, API responses, or logs.
 
-## Server configuration
+## Production configuration
 
-Provision the live `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` only in the central API deployment's server-side secret environment. The provider row and site rows remain disabled until those credentials, the live account, webhook delivery, and site checkout behavior are confirmed. `STRIPE_LIVE_CHARGES_ENABLED` is an explicit additional live-mode guard and is set to `false` in the example environment. Test/live mode in the database must match the `sk_test_`/`sk_live_` secret prefix. A live key by itself cannot enable live payments.
+Set these only in the **`api-binzeo` Vercel project → Production** environment:
 
-The user has confirmed the business country is the United States, and central metadata is set to US/USD. The currently connected Stripe MCP account is only a test sandbox, so the actual live account's legal country, currency, and eligibility still need to be confirmed before activation. JABIYEN's current BDT checkout currency is not enabled by this USD configuration and would require separate account-specific review.
+| Variable | Value / use |
+| --- | --- |
+| `STRIPE_SECRET_KEY` | The real merchant account's live secret, beginning `sk_live_`. Never use a publishable key. |
+| `STRIPE_WEBHOOK_SECRET` | The signing secret beginning `whsec_` for the live webhook endpoint below. |
+| `STRIPE_LIVE_CHARGES_ENABLED` | Leave `false` until the live key and webhook are verified; change to `true` only to intentionally allow real charges. It is currently set to `false`. |
 
-## Applying and extending
+Register this URL in the Stripe Dashboard's **live mode**: `https://api-binzeo.vercel.app/v1/payments/stripe/webhook`. Copy its signing secret to `STRIPE_WEBHOOK_SECRET`. The central API's JABIYEN service-role database variables (`JABIYEN_SUPABASE_URL`, `JABIYEN_SUPABASE_SERVICE_ROLE_KEY`) and Auth integration settings must also be correctly populated; their names already exist in the `api-binzeo` Vercel configuration, but secret values were not read. In the `auth-binzeo` project, production `CENTRAL_API_ENABLED=true` and `CENTRAL_API_BASE_URL=https://api-binzeo.vercel.app` are already configured.
 
-The migration `supabase/migrations/20261023192000_central_stripe_payments.sql` has already been applied to the current central Supabase project. Keep the migration in source control for reproducibility in other environments; do not apply it to the JABIYEN project. To add a site later, register its project and allowed origins centrally, create its payment-site settings, implement an order adapter in `api.binzeo`, and test using Stripe test credentials and signed webhook fixtures before enabling checkout. Refund/dispute workflows and cross-site saved payment methods are out of scope for this foundation.
+A live key alone cannot enable checkout: provider mode, key prefix, webhook secret, and the explicit live-charge gate must all match. Do not paste secrets in chat or commit them to a repository. Use Vercel's encrypted Production environment-variable UI.
+
+## Migrations and extension
+
+- `supabase/migrations/20261023192000_central_stripe_payments.sql` creates the central payment schema and has been applied to the central Supabase project.
+- `supabase/migrations/20261023195700_enable_jabiyen_central_checkout.sql` registers the Auth origin and configures the central provider/site for US/USD; the explicit Vercel live gate remains false.
+
+Apply both only to the central Auth Supabase project, never to the JABIYEN project. Future sites should add a small central server-side order adapter, a central project origin, and central site settings; their websites should link customers to the same Auth payment page rather than implement their own Stripe flows. Refund/dispute workflows and saved payment methods are outside this rollout.
