@@ -6,6 +6,7 @@ import navigation from "./navigation";
 import products from "./products";
 import variants from "./variants";
 import dataTables from "./data-tables";
+import adminLogin from "./admin-login";
 
 const app = express();
 app.use((req, _res, next) => {
@@ -14,6 +15,7 @@ app.use((req, _res, next) => {
   next();
 });
 app.use(express.json());
+app.use(adminLogin);
 app.use(dashboardHero);
 app.use(catalog);
 app.use(navigation);
