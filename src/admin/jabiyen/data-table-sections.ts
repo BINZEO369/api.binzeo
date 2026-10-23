@@ -5,12 +5,13 @@ export type JabiyenContentSectionSpec = {
   group: string;
   path: string;
   editableColumns: string[];
+  hiddenColumns?: string[];
 };
 
 /**
- * Only public-facing website content and store configuration is exposed here.
- * Customer, auth, administrator, checkout and order tables intentionally stay
- * out of the generic section editor and must use their dedicated workflows.
+ * All public tables are listed for authorized administrators. Only website
+ * content and store configuration has generic write access; customer, admin,
+ * checkout and order data is read-only here and protected from generic writes.
  */
 export const JABIYEN_CONTENT_SECTION_SPECS: JabiyenContentSectionSpec[] = [
   {
@@ -124,5 +125,81 @@ export const JABIYEN_CONTENT_SECTION_SPECS: JabiyenContentSectionSpec[] = [
   {
     name: "currency_rates", title: "Currency Rates", description: "Manage supported currencies and exchange rates.", group: "Store settings", path: "/currency-rates",
     editableColumns: ["currency_code", "currency_name", "currency_symbol", "exchange_rate", "is_active", "is_default"],
+  },
+  {
+    name: "admins", title: "Administrator Accounts", description: "Read-only administrator account records.", group: "Administration", path: "/admin/database/admins",
+    editableColumns: [],
+  },
+  {
+    name: "categories", title: "Categories", description: "Read-only category records.", group: "Catalog", path: "/admin/database/categories",
+    editableColumns: [],
+  },
+  {
+    name: "subcategories", title: "Subcategories", description: "Read-only subcategory records.", group: "Catalog", path: "/admin/database/subcategories",
+    editableColumns: [],
+  },
+  {
+    name: "menu_items", title: "Menu Items", description: "Read-only navigation menu records.", group: "Catalog", path: "/admin/database/menu_items",
+    editableColumns: [],
+  },
+  {
+    name: "products", title: "Products", description: "Read-only product records.", group: "Catalog", path: "/admin/database/products",
+    editableColumns: [],
+  },
+  {
+    name: "product_videos", title: "Product Videos", description: "Read-only product video records.", group: "Catalog", path: "/admin/database/product_videos",
+    editableColumns: [],
+  },
+  {
+    name: "product_banners", title: "Product Banners", description: "Read-only product banner records.", group: "Catalog", path: "/admin/database/product_banners",
+    editableColumns: [],
+  },
+  {
+    name: "hero", title: "Hero Banners", description: "Read-only primary hero banner records.", group: "Catalog", path: "/admin/database/hero",
+    editableColumns: [],
+  },
+  {
+    name: "hero_videos", title: "Hero Videos", description: "Read-only hero video records.", group: "Catalog", path: "/admin/database/hero_videos",
+    editableColumns: [],
+  },
+  {
+    name: "product_colors", title: "Product Colors", description: "Read-only product color records.", group: "Catalog", path: "/admin/database/product_colors",
+    editableColumns: [],
+  },
+  {
+    name: "color_sizes", title: "Color Sizes", description: "Read-only color and size records.", group: "Catalog", path: "/admin/database/color_sizes",
+    editableColumns: [],
+  },
+  {
+    name: "product_variants", title: "Product Variants", description: "Read-only product variant records.", group: "Catalog", path: "/admin/database/product_variants",
+    editableColumns: [],
+  },
+  {
+    name: "profiles", title: "Customer Profiles", description: "Read-only customer profile records.", group: "Customer data", path: "/admin/database/profiles",
+    editableColumns: [],
+  },
+  {
+    name: "customer_profiles", title: "Central Customer Profiles", description: "Read-only synchronized customer records.", group: "Customer data", path: "/admin/database/customer_profiles",
+    editableColumns: [],
+  },
+  {
+    name: "checkout_sessions", title: "Checkout Sessions", description: "Read-only checkout records; idempotency and request fingerprint fields are hidden.", group: "Orders & checkout", path: "/admin/database/checkout_sessions",
+    editableColumns: [], hiddenColumns: ["idempotency_key", "request_fingerprint"],
+  },
+  {
+    name: "orders", title: "Orders", description: "Read-only order records; customer access-token hashes are hidden.", group: "Orders & checkout", path: "/admin/database/orders",
+    editableColumns: [], hiddenColumns: ["access_token_hash"],
+  },
+  {
+    name: "order_items", title: "Order Items", description: "Read-only order line-item records.", group: "Orders & checkout", path: "/admin/database/order_items",
+    editableColumns: [],
+  },
+  {
+    name: "order_payments", title: "Order Payments", description: "Read-only payment records.", group: "Orders & checkout", path: "/admin/database/order_payments",
+    editableColumns: [],
+  },
+  {
+    name: "order_status_history", title: "Order Status History", description: "Read-only order status audit history.", group: "Orders & checkout", path: "/admin/database/order_status_history",
+    editableColumns: [],
   },
 ];

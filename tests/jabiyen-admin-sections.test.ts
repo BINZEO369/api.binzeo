@@ -74,21 +74,22 @@ describe("JABIYEN admin content sections", () => {
     mocks.from.mockImplementation(() => createQuery());
   });
 
-  it("offers friendly website-section paths and excludes auth, customer and order tables", async () => {
+  it("lists all 47 live public tables, including customer and order data", async () => {
     const { response, body } = await request(["admin", "tables"]);
     const names = body.tables.map((table: { name: string }) => table.name);
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.admin.email).toBe("admin@example.test");
-    expect(body.tables.length).toBeGreaterThan(20);
-    expect(body.tables.every((table: { path: string }) => !table.path.includes("/database/"))).toBe(true);
+    expect(body.tables).toHaveLength(47);
     expect(names).toContain("about_us");
     expect(names).toContain("shipping_fees");
-    expect(names).not.toContain("admins");
-    expect(names).not.toContain("profiles");
-    expect(names).not.toContain("customer_profiles");
-    expect(names).not.toContain("orders");
-    expect(names).not.toContain("order_payments");
+    expect(names).toContain("admins");
+    expect(names).toContain("profiles");
+    expect(names).toContain("customer_profiles");
+    expect(names).toContain("checkout_sessions");
+    expect(names).toContain("orders");
+    expect(names).toContain("order_payments");
+    expect(body.tables.find((table: { name: string }) => table.name === "orders").canWrite).toBe(false);
   });
 
   it("provides the sign-in session verification endpoint expected by the static frontend", async () => {
@@ -110,10 +111,23 @@ describe("JABIYEN admin content sections", () => {
     expect(body.rows).toEqual([{ id: 12, header_title: "About" }]);
   });
 
-  it("does not expose order tables through the generic reader or writer", async () => {
-    const { response, body } = await request(["admin", "tables", "orders"], { method: "POST", body: { status: "cancelled" } });
-    expect(response.status).toBe(404);
-    expect(body.success).toBe(false);
+  it("shows order rows while omitting customer access-token hashes", async () => {
+    const query = createQuery();
+    mocks.from.mockReturnValueOnce(query);
+    const { response, body } = await request(["admin", "tables", "orders"]);
+    expect(response.status).toBe(200);
+    expect(body.columns.map((column: { name: string }) => column.name)).not.toContain("access_token_hash");
+    expect(query.select.mock.calls[0][0]).not.toContain("access_token_hash");
+  });
+
+  it.each([
+    ["POST", ["admin", "tables", "orders"], { status: "cancelled" }],
+    ["PATCH", ["admin", "tables", "orders", "12"], { status: "cancelled" }],
+    ["DELETE", ["admin", "tables", "orders", "12"], undefined],
+  ])("rejects %s on read-only order tables", async (method, path, body) => {
+    const { response, body: result } = await request(path, { method, body });
+    expect(response.status).toBe(403);
+    expect(result.error).toContain("view-only");
     expect(mocks.from).not.toHaveBeenCalled();
   });
 

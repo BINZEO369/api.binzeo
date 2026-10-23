@@ -47,7 +47,7 @@ function sectionResponse(section: (typeof sections)[number]) {
     description: section.description,
     group: section.group,
     path: section.path,
-    columns: section.table.columns,
+    columns: section.table.columns.filter((column) => !section.hiddenColumns?.includes(column.name)),
     primaryKeys: section.table.primaryKeys,
     editableColumns: section.editableColumns,
     canWrite: section.editableColumns.length > 0,
@@ -61,6 +61,12 @@ function getSection(req: express.Request, res: express.Response) {
     return null;
   }
   return section;
+}
+
+function requireWritable(section: (typeof sections)[number], res: express.Response) {
+  if (section.editableColumns.length > 0) return true;
+  res.status(403).json({ success: false, error: "This table is view-only in the admin database." });
+  return false;
 }
 
 function parsePayload(
@@ -228,7 +234,8 @@ router.get("/api/admin/tables/:table", adminAuth, async (req, res) => {
   const pageSize = Number.isFinite(requestedPageSize) ? Math.min(100, Math.max(10, requestedPageSize)) : 25;
   const from = (page - 1) * pageSize;
   try {
-    let query = supabase.from(section.table.name as never).select(section.table.columns.map((column) => column.name).join(","), { count: "exact" });
+    const visibleColumns = section.table.columns.filter((column) => !section.hiddenColumns?.includes(column.name));
+    let query = supabase.from(section.table.name as never).select(visibleColumns.map((column) => column.name).join(","), { count: "exact" });
     const sortColumn = section.table.columns.some((column) => column.name === "sort_order") ? "sort_order" : section.table.primaryKeys[0];
     query = query.order(sortColumn, { ascending: true });
     if (sortColumn !== section.table.primaryKeys[0]) query = query.order(section.table.primaryKeys[0], { ascending: true });
@@ -255,6 +262,7 @@ router.get("/api/admin/tables/:table", adminAuth, async (req, res) => {
 router.post("/api/admin/tables/:table", adminAuth, async (req, res) => {
   const section = getSection(req, res);
   if (!section) return;
+  if (!requireWritable(section, res)) return;
   const startedAt = Date.now();
   const parsed = parsePayload(req.body, section, true);
   if (parsed.error) {
@@ -286,6 +294,7 @@ router.post("/api/admin/tables/:table", adminAuth, async (req, res) => {
 router.patch("/api/admin/tables/:table/:id", adminAuth, async (req, res) => {
   const section = getSection(req, res);
   if (!section) return;
+  if (!requireWritable(section, res)) return;
   const startedAt = Date.now();
   const parsed = parsePayload(req.body, section, false);
   if (parsed.error) {
@@ -327,6 +336,7 @@ router.patch("/api/admin/tables/:table/:id", adminAuth, async (req, res) => {
 router.delete("/api/admin/tables/:table/:id", adminAuth, async (req, res) => {
   const section = getSection(req, res);
   if (!section) return;
+  if (!requireWritable(section, res)) return;
   const startedAt = Date.now();
   const primaryKey = section.table.primaryKeys[0];
   try {
