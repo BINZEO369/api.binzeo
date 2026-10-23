@@ -53,6 +53,8 @@ function tagFor(route) {
 
 function needsBearer(route) {
   if (route === "/v1/auth/token") return false;
+  if (route === "/v1/payments/stripe/webhook") return false;
+  if (route.startsWith("/v1/payments/")) return true;
   if (route === "/v1/projects/jabiyen/admin/admin/login") return false;
   if (route.startsWith("/v1/projects/jabiyen/admin/")) return true;
   if (route.startsWith("/v1/projects/jabiyen/public/")) return false;

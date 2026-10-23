@@ -2297,6 +2297,103 @@
         }
       }
     },
+    "/v1/payments/checkout-sessions": {
+      "post": {
+        "operationId": "post_v1_payments_checkout_sessions",
+        "tags": [
+          "payments"
+        ],
+        "summary": "POST /v1/payments/checkout-sessions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
+    "/v1/payments/requests/{requestId}": {
+      "get": {
+        "operationId": "get_v1_payments_requests_requestId",
+        "tags": [
+          "payments"
+        ],
+        "summary": "GET /v1/payments/requests/{requestId}",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
+    "/v1/payments/stripe/webhook": {
+      "post": {
+        "operationId": "post_v1_payments_stripe_webhook",
+        "tags": [
+          "payments"
+        ],
+        "summary": "POST /v1/payments/stripe/webhook",
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
     "/v1/privacy/consent": {
       "get": {
         "operationId": "get_v1_privacy_consent",
