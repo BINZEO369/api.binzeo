@@ -1,5 +1,5 @@
-/** Next.js route adapter; site-specific implementation is kept under src/sites. */
-export { GET } from "@/sites/binzeo/server/routes/api/auth/oauth-client/route";
+/** Next.js route adapter; implementation lives under src/binzeo or src/jabiyen; shared helpers live under src/common. */
+export { GET } from "@/binzeo/api/auth/oauth-client/route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

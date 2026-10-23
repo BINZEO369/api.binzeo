@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const routeRoot = path.join(root, "src/app");
-const output = path.join(root, "src/platform/openapi.generated.json");
+const output = path.join(root, "src/binzeo/openapi.generated.json");
 const methods = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
 async function walk(dir) {

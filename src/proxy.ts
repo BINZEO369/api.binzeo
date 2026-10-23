@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
-import { getAllowedOrigins } from "@/platform/env";
-import { getRequestId } from "@/platform/http/request-id";
+import { getAllowedOrigins } from "@/binzeo/config/env";
+import { getRequestId } from "@/common/http/request-id";
 
 const METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 const HEADERS = "Authorization, Content-Type, X-Request-ID";

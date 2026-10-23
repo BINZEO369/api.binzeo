@@ -1,2 +1,2 @@
-/** Next.js route adapter; site-specific implementation is kept under src/sites. */
-export { GET, PUT, DELETE } from "@/sites/binzeo/server/routes/api/admin/email-templates/route";
+/** Next.js route adapter; implementation lives under src/binzeo or src/jabiyen; shared helpers live under src/common. */
+export { GET, PUT, DELETE } from "@/binzeo/api/admin/email-templates/route";

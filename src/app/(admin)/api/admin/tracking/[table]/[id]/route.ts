@@ -1,4 +1,4 @@
-/** Next.js route adapter; site-specific implementation is kept under src/sites. */
-export { GET, PATCH, DELETE } from "@/sites/binzeo/server/routes/api/admin/tracking/[table]/[id]/route";
+/** Next.js route adapter; implementation lives under src/binzeo or src/jabiyen; shared helpers live under src/common. */
+export { GET, PATCH, DELETE } from "@/binzeo/api/admin/tracking/[table]/[id]/route";
 
 export const dynamic = "force-dynamic";

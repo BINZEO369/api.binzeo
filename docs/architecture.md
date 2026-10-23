@@ -16,24 +16,24 @@ Start with one Vercel-deployable TypeScript/Next.js service and strict module bo
 ## Module ownership
 
 - `src/app/(admin)`, `src/app/(user)` and `src/app/(system)` are Next.js URL adapters. Route groups organize code without changing public URLs; each route file re-exports methods from its owning implementation module and retains only Next.js route configuration.
-- `src/sites/binzeo/auth` owns BINZEO identity, profile, email and account-security logic; `src/sites/binzeo/admin` owns BINZEO admin and its table/privacy allowlists.
-- `src/sites/binzeo/server/routes` owns BINZEO route implementations. Its internal tree mirrors the `/api/...` route family to make files easy to locate.
-- `src/sites/jabiyen/admin`, `src/sites/jabiyen/user` and `src/sites/jabiyen/server/routes` own JABIYEN admin, user/database/domain and public/admin API implementations respectively.
-- `src/platform/auth`, `src/platform/http`, `src/platform/security`, `src/platform/database/supabase` and `src/platform/registry` are shared infrastructure. A site-specific rule must not be placed here unless another site genuinely uses it.
-- `src/platform/server/routes` owns health, OpenAPI and other service-wide routes; `src/platform/openapi.generated.json` is build-generated and must not be edited by hand.
+- `src/binzeo/auth` owns BINZEO identity, profile, email and account-security logic; `src/binzeo/admin` owns BINZEO admin and its table/privacy allowlists.
+- `src/binzeo/api` owns BINZEO API implementations, including `/api/admin`, `/api/auth`, `/api/user` and service-wide `/v1` routes.
+- `src/jabiyen/admin`, `src/jabiyen/website` and `src/jabiyen/api` own JABIYEN admin, website configuration/data/domain, and public/admin API implementations respectively.
+- `src/common/http`, `src/common/security` and `src/common/database/supabase` contain reusable technical helpers. Keep site-specific business rules in `src/binzeo` or that website's folder.
+- `src/binzeo/registry` contains the central server's project/provider registry; `src/binzeo/openapi.generated.json` is build-generated and must not be edited by hand.
 - `src/proxy.ts` stays at the Next.js-required discovery path and is the shared request-policy entrypoint.
-- `tests/platform` and `tests/sites/<site-key>` mirror code ownership. `tests/server-only.ts` is shared test support.
+- `tests/binzeo` and `tests/jabiyen` mirror code ownership. `tests/server-only.ts` is shared test support.
 - `supabase/migrations` remains the standard CLI location for the central BINZEO database. `supabase/jabiyen/migrations` belongs to JABIYEN's separate database; migrations are reviewed/applied explicitly, never by a web build.
 
-When adding a site, create `src/sites/<site-key>/` first; put its handlers, site domain logic, tests and docs there. Add only the thin Next.js adapter(s) needed under `src/app`, with the public namespace mapped deliberately in `next.config.ts` or `vercel.json`. Reuse `src/platform` only for code with real cross-site ownership. Do not duplicate a handler in both `src/app` and the site module.
+When adding a website, create `src/<website-name>/` first, with separate `admin/`, `website/` and `api/` areas as needed; put its tests under `tests/<website-name>/`. Add only thin Next.js adapters under `src/app`, with the public namespace mapped deliberately in `next.config.ts` or `vercel.json`. Reuse `src/common` only for low-level code genuinely shared across websites. Do not duplicate a handler in both `src/app` and its website folder.
 
 ## Frontend integration
 
 `auth.binzeo`, `admin.binzeo`, `JABIYEN-WEBSITE` and `JABIYEN-ADMIN` remain separately deployed frontend applications. Their `/api/*` requests rewrite to fixed central endpoints. The browser never receives a central or project database service-role key.
 
-- JABIYEN config/database/domain code lives under `src/sites/jabiyen/user`.
-- JABIYEN admin/public composition modules live under `src/sites/jabiyen/admin`.
-- JABIYEN API implementations live under `src/sites/jabiyen/server/routes`; Next.js URL adapters stay under `src/app/(admin)` and `src/app/(user)`.
+- JABIYEN config/database/domain code lives under `src/jabiyen/website`.
+- JABIYEN admin/public composition modules live under `src/jabiyen/admin`.
+- JABIYEN API implementations live under `src/jabiyen/api`; Next.js URL adapters stay under `src/app/(admin)` and `src/app/(user)`.
 - `/v1/projects/jabiyen/public/*` and `/v1/projects/jabiyen/admin/*` — canonical versioned routes.
 - `/api/jabiyen-public/*` and `/api/jabiyen-admin/*` — temporary compatibility aliases for existing frontends.
 
