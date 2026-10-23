@@ -1,25 +1,4 @@
-import { createClient } from "@/user/auth/lib/supabase/server";
-import { ok, fail } from "@/user/auth/lib/api/response";
+/** Next.js route adapter; site-specific implementation is kept under src/sites. */
+export { GET } from "@/sites/binzeo/server/routes/api/sectors/route";
 
 export const dynamic = "force-dynamic";
-
-export async function GET() {
-  try {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-      .from("sectors")
-      .select("id, sector_code, sector_name, description, is_active")
-      .eq("is_active", true)
-      .order("sector_name", { ascending: true });
-
-    if (error) {
-      return fail(error.message, 400, "SECTORS_FETCH_FAILED");
-    }
-
-    return ok({ sectors: data ?? [] });
-  } catch (err) {
-    console.error("[SECTORS_ERROR]", err);
-    return fail("Internal server error", 500, "INTERNAL_ERROR");
-  }
-}
