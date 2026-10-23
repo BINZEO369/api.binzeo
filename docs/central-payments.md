@@ -2,7 +2,7 @@
 
 ## Scope and deployment state
 
-The payment service belongs to the central `api.binzeo` server and the shared Central Auth Supabase project. Its schema is in `supabase/migrations`; it does not belong in `supabase/jabiyen/migrations` or in an individual website repository. One central Stripe account is used initially. The provider and every site are disabled by default, in test mode, until the merchant country, charge currency, eligibility, and credentials are deliberately configured.
+The payment service belongs to the central `api.binzeo` server and the shared Central Auth Supabase project. Its schema is in `supabase/migrations`; it does not belong in `supabase/jabiyen/migrations` or in an individual website repository. One central Stripe account is used initially. The central provider metadata is configured for the user-confirmed US business country and USD currency in live mode, but the provider and every site remain disabled until a live Stripe account, credentials, account eligibility, and a trusted site adapter are verified.
 
 This is a backend foundation only. No website is connected in this phase, and no live charge can be made. JABIYEN is not ready to be enabled: its current checkout is cash-on-delivery, and delivery fee/total may be unknown when the order is created. A JABIYEN adapter must wait until its final payable amount is fixed server-side.
 
@@ -30,9 +30,9 @@ All payment tables have RLS enabled and are accessible only to the central serve
 
 ## Server configuration
 
-Provision `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` only in the central API deployment's server-side secret environment. The provider row and site rows remain disabled until account country/currency and site checkout behavior are confirmed. `STRIPE_LIVE_CHARGES_ENABLED` is an explicit additional live-mode guard and is set to `false` in the example environment. Test/live mode in the database must match the `sk_test_`/`sk_live_` secret prefix. A live key by itself cannot enable live payments.
+Provision the live `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` only in the central API deployment's server-side secret environment. The provider row and site rows remain disabled until those credentials, the live account, webhook delivery, and site checkout behavior are confirmed. `STRIPE_LIVE_CHARGES_ENABLED` is an explicit additional live-mode guard and is set to `false` in the example environment. Test/live mode in the database must match the `sk_test_`/`sk_live_` secret prefix. A live key by itself cannot enable live payments.
 
-Stripe's published account-country availability does not list Bangladesh. JABIYEN's current BDT checkout currency also requires account-specific compatibility confirmation before site activation. The service must remain disabled if the merchant account is not eligible or the currency is not accepted by that Stripe account.
+The user has confirmed the business country is the United States, and central metadata is set to US/USD. The currently connected Stripe MCP account is only a test sandbox, so the actual live account's legal country, currency, and eligibility still need to be confirmed before activation. JABIYEN's current BDT checkout currency is not enabled by this USD configuration and would require separate account-specific review.
 
 ## Applying and extending
 
