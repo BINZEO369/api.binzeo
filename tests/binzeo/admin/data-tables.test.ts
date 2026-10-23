@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DATA_TABLES, getTableDefinition } from "@/binzeo/admin/data-tables";
-import { getPrivacyAnalyticsColumns, PRIVACY_ANALYTICS_COLUMNS } from "@/binzeo/admin/privacy-analytics/columns";
+import { getPrivacyAnalyticsColumns, PRIVACY_ANALYTICS_COLUMNS } from "@/binzeo/admin/privacy-analytics/tables";
 import { getPrivacyAnalyticsTable, PRIVACY_ANALYTICS_TABLES } from "@/binzeo/admin/privacy-analytics/tables";
 
 describe("admin data table allowlists", () => {

@@ -1,6 +1,5 @@
 import { getAdminApiContext, getAdminDataClient } from "@/binzeo/admin/lib/admin";
-import { getPrivacyAnalyticsTable } from "@/binzeo/admin/privacy-analytics/tables";
-import { getPrivacyAnalyticsColumns } from "@/binzeo/admin/privacy-analytics/columns";
+import { getPrivacyAnalyticsColumns, getPrivacyAnalyticsTable } from "@/binzeo/admin/privacy-analytics/tables";
 import { fail, ok } from "@/binzeo/admin/lib/api/response";
 
 type RouteContext = { params: Promise<{ table: string }> };
