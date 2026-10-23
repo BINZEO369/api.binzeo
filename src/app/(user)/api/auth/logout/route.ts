@@ -1,2 +1,2 @@
-/** Next.js route adapter; site-specific implementation is kept under src/sites. */
-export { POST } from "@/sites/binzeo/server/routes/api/auth/logout/route";
+/** Next.js route adapter; implementation lives under src/binzeo or src/jabiyen; shared helpers live under src/common. */
+export { POST } from "@/binzeo/api/auth/logout/route";
