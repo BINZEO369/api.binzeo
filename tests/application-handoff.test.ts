@@ -90,7 +90,10 @@ describe("Central application handoff", () => {
       now,
     });
     expect(verify(handoff.token, baseInput.now + 60_000)).toBe(false);
-    expect(verify(`${handoff.token.slice(0, -1)}A`)).toBe(false);
+    const signatureStart = handoff.token.lastIndexOf(".") + 1;
+    const firstSignatureCharacter = handoff.token[signatureStart];
+    const tamperedSignature = `${handoff.token.slice(0, signatureStart)}${firstSignatureCharacter === "A" ? "B" : "A"}${handoff.token.slice(signatureStart + 1)}`;
+    expect(verify(tamperedSignature)).toBe(false);
     expect(verify("not-a-handoff-token")).toBe(false);
   });
 
