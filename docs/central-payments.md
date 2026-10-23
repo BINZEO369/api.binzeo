@@ -2,11 +2,11 @@
 
 ## Customer flow and ownership
 
-The customer places an order on JABIYEN. Its order-confirmation screen contains only a link to `https://auth-binzeo.vercel.app/payment?order_number=...`; JABIYEN does not collect card data, create Stripe sessions, or store Stripe payment records. The customer signs in to Central Auth, sees the order number on the Auth payment page, and clicks **Pay securely with Stripe**. Auth sends only the order number and the Central Auth session to `api.binzeo`; the central server verifies the order and creates a hosted Stripe Checkout Session. Stripe card entry happens on Stripe's domain.
+The customer chooses COD or online Stripe in JABIYEN's Payment step. For Stripe, JABIYEN submits its normal order request and then only redirects the browser to `https://auth-binzeo.vercel.app/payment?order_number=...`; it does not create a Stripe session or store card/payment state. The customer signs in to Central Auth, reviews the order number on the Auth payment page, and clicks **Pay securely with Stripe**. Auth sends only the order number and the Central Auth session to `api.binzeo`; the central server verifies the order and creates a hosted Stripe Checkout Session. Stripe card entry happens on Stripe's domain.
 
 All payment configuration, requests, attempts, Stripe Customer mappings, and webhook inbox records are stored in the central Auth Supabase database. JABIYEN's separate database remains the source of its order, item, shipping-fee, and admin-managed currency-rate data; the central adapter reads those values server-side and never writes Stripe payment state to JABIYEN.
 
-The central payment provider is configured for the user-selected United States / USD setup. The connected Stripe MCP account is a test sandbox, not the user's live merchant account. Production charges remain blocked by `STRIPE_LIVE_CHARGES_ENABLED=false` until the real live Stripe credentials and webhook signing secret are added to the central Vercel project and the gate is intentionally changed.
+The central payment provider is configured for the user-selected United States / USD setup and is currently in shared `test` mode in the central database; all sites use this mode. The connected Stripe MCP account is a test sandbox, not the user's live merchant account. Test checkout requires a test `sk_test_...` key and test webhook signing secret in the `api-binzeo` Vercel Production environment. Real charges remain blocked by `STRIPE_LIVE_CHARGES_ENABLED=false`; before live use, switch the central provider mode to `live`, set the live key and webhook secret, and intentionally change the gate.
 
 ## Server-side trust and amount rules
 
