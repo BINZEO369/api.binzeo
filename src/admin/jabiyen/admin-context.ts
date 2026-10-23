@@ -2,17 +2,40 @@
 // @ts-nocheck
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = process.env.JABIYEN_SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.JABIYEN_SUPABASE_SERVICE_ROLE_KEY;
-const SUPABASE_ANON_KEY = process.env.JABIYEN_SUPABASE_ANON_KEY;
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !SUPABASE_ANON_KEY) {
-  throw new Error("JABIYEN database environment is not configured");
+function getJabiyenSupabaseConfig() {
+  const url = process.env.JABIYEN_SUPABASE_URL;
+  const serviceRoleKey = process.env.JABIYEN_SUPABASE_SERVICE_ROLE_KEY;
+  const anonKey = process.env.JABIYEN_SUPABASE_ANON_KEY;
+  if (!url || !serviceRoleKey || !anonKey) {
+    throw new Error("JABIYEN database environment is not configured");
+  }
+  return { url, serviceRoleKey, anonKey };
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+let serviceClient;
+function getServiceClient() {
+  if (!serviceClient) {
+    const { url, serviceRoleKey } = getJabiyenSupabaseConfig();
+    serviceClient = createClient(url, serviceRoleKey);
+  }
+  return serviceClient;
+}
+
+// Keep secrets out of build-time module evaluation. Actual database access still
+// requires all three environment variables and fails closed when they are absent.
+export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_target, property) {
+    if (property === "then") return undefined;
+    if (typeof property === "symbol") return undefined;
+    const client = getServiceClient();
+    const value = client[property];
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 export function createJabiyenAuthClient() {
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const { url, anonKey } = getJabiyenSupabaseConfig();
+  return createClient(url, anonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

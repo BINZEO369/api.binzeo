@@ -63,6 +63,12 @@ function getSection(req: express.Request, res: express.Response) {
   return section;
 }
 
+function requireWritable(section: (typeof sections)[number], res: express.Response) {
+  if (section.editableColumns.length > 0) return true;
+  res.status(403).json({ success: false, error: "This table is view-only in the admin database." });
+  return false;
+}
+
 function parsePayload(
   input: unknown,
   section: (typeof sections)[number],
@@ -255,6 +261,7 @@ router.get("/api/admin/tables/:table", adminAuth, async (req, res) => {
 router.post("/api/admin/tables/:table", adminAuth, async (req, res) => {
   const section = getSection(req, res);
   if (!section) return;
+  if (!requireWritable(section, res)) return;
   const startedAt = Date.now();
   const parsed = parsePayload(req.body, section, true);
   if (parsed.error) {
@@ -286,6 +293,7 @@ router.post("/api/admin/tables/:table", adminAuth, async (req, res) => {
 router.patch("/api/admin/tables/:table/:id", adminAuth, async (req, res) => {
   const section = getSection(req, res);
   if (!section) return;
+  if (!requireWritable(section, res)) return;
   const startedAt = Date.now();
   const parsed = parsePayload(req.body, section, false);
   if (parsed.error) {
@@ -327,6 +335,7 @@ router.patch("/api/admin/tables/:table/:id", adminAuth, async (req, res) => {
 router.delete("/api/admin/tables/:table/:id", adminAuth, async (req, res) => {
   const section = getSection(req, res);
   if (!section) return;
+  if (!requireWritable(section, res)) return;
   const startedAt = Date.now();
   const primaryKey = section.table.primaryKeys[0];
   try {
