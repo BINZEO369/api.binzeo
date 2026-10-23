@@ -3913,6 +3913,35 @@
       }
     },
     "/v1/v1/projects/jabiyen/admin/{path}": {},
+    "/v1/v1/projects/jabiyen/admin/admin/login": {
+      "post": {
+        "operationId": "post_v1_v1_projects_jabiyen_admin_admin_login",
+        "tags": [
+          "v1"
+        ],
+        "summary": "POST /v1/v1/projects/jabiyen/admin/admin/login",
+        "responses": {
+          "200": {
+            "description": "Request succeeded."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required or invalid."
+          },
+          "403": {
+            "description": "Permission denied."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
     "/v1/v1/projects/jabiyen/public/{path}": {}
   },
   "components": {
