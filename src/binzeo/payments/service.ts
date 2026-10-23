@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { z } from "zod";
 import type { CentralIdentity } from "@/binzeo/auth/identity";
 import { createPrivilegedClient } from "@/common/database/supabase/clients";
+import { getJabiyenAdminDatabase } from "@/jabiyen/website/database";
 
 export class PaymentServiceError extends Error {
   constructor(
@@ -119,6 +120,12 @@ export async function createPaymentRequest(input: unknown, identity: CentralIden
   }
   if (provider.mode === "live" && (!provider.merchant_country || !provider.default_currency)) {
     throw new PaymentServiceError("MERCHANT_CONFIGURATION_REQUIRED", 503, "Merchant country and currency must be configured before live payments.");
+  }
+  if (provider.mode === "live") {
+    requireStripeSecret("live");
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      throw new PaymentServiceError("WEBHOOK_NOT_CONFIGURED", 503, "The live payment webhook is not configured.");
+    }
   }
 
   const { data, error } = await db.from("payment_requests").insert({
@@ -344,9 +351,16 @@ export async function createCheckoutSession(input: {
   }
   if (!attempt) throw new PaymentServiceError("PAYMENT_SERVICE_UNAVAILABLE", 503, "The payment service is temporarily unavailable.");
 
-  const successUrl = safeRelativeUrl(site.success_path, origin);
+  const successUrl = safeRelativeUrl(site.success_path, origin, {
+    request_id: paymentRequest.id,
+    order_number: paymentRequest.external_order_reference,
+  });
   const successUrlValue = `${successUrl.toString()}${successUrl.search ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = safeRelativeUrl(site.cancel_path, origin, { payment: "cancelled", request_id: paymentRequest.id });
+  const cancelUrl = safeRelativeUrl(site.cancel_path, origin, {
+    payment: "cancelled",
+    request_id: paymentRequest.id,
+    order_number: paymentRequest.external_order_reference,
+  });
   const metadata = {
     payment_request_id: paymentRequest.id,
     project_key: project.project_key,
@@ -393,6 +407,127 @@ export async function createCheckoutSession(input: {
     await db.from("payment_attempts").update({ status: "failed" }).eq("id", attempt.id);
     throw new PaymentServiceError("CHECKOUT_SESSION_CREATE_FAILED", 503, "We could not start checkout. Please retry shortly.");
   }
+}
+
+function parseMinorUnits(value: unknown): bigint | null {
+  const match = String(value ?? "").trim().match(/^(\d{1,10})(?:\.(\d{1,2}))?$/);
+  if (!match) return null;
+  return BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
+}
+
+function parseRateMicros(value: unknown): bigint | null {
+  const match = String(value ?? "").trim().match(/^(\d{1,3})(?:\.(\d{1,6}))?$/);
+  if (!match) return null;
+  return BigInt(match[1]) * 1_000_000n + BigInt((match[2] ?? "").padEnd(6, "0"));
+}
+
+function formatMinorUnits(value: bigint): string {
+  return `${value / 100n}.${String(value % 100n).padStart(2, "0")}`;
+}
+
+/**
+ * The Auth payment page submits only an order number. This adapter reads the
+ * authoritative JABIYEN order and rate server-side; Stripe records are written
+ * only to the Central Supabase payment tables.
+ */
+export async function createJabiyenOrderCheckoutSession(input: {
+  orderNumber: string;
+  origin: string | null;
+  identity: CentralIdentity;
+}) {
+  const orderNumber = input.orderNumber.trim();
+  if (!/^[A-Za-z0-9-]{1,80}$/.test(orderNumber)) {
+    throw new PaymentServiceError("ORDER_NOT_PAYABLE", 404, "The order is not available for payment.");
+  }
+  const email = input.identity.user.email?.trim().toLowerCase();
+  if (!email || !input.identity.user.email_confirmed_at) {
+    throw new PaymentServiceError("VERIFIED_EMAIL_REQUIRED", 403, "A verified account email is required for checkout.");
+  }
+
+  const jabiDb = getJabiyenAdminDatabase();
+  const { data: order, error: orderError } = await jabiDb.from("orders")
+    .select("id,order_number,checkout_id,status")
+    .eq("order_number", orderNumber)
+    .maybeSingle();
+  if (orderError) safeDatabaseError(orderError, "JABIYEN_ORDER_LOOKUP");
+  if (!order || !["pending_confirmation", "confirmed"].includes(order.status)) {
+    throw new PaymentServiceError("ORDER_NOT_PAYABLE", 404, "The order is not available for payment.");
+  }
+
+  const [{ data: checkout, error: checkoutError }, { data: payment, error: paymentError }, { data: items, error: itemsError }, { data: usdRate, error: rateError }] = await Promise.all([
+    jabiDb.from("checkout_sessions").select("id,idempotency_key,customer_email,currency,subtotal,delivery_fee,total_amount,delivery_fee_status,status").eq("id", order.checkout_id).maybeSingle(),
+    jabiDb.from("order_payments").select("method,status,currency,amount_due").eq("order_id", order.id).maybeSingle(),
+    jabiDb.from("order_items").select("product_name,variant_name,quantity,unit_price,line_total").eq("order_id", order.id).limit(20),
+    jabiDb.from("currency_rates").select("exchange_rate,is_active,updated_at").eq("currency_code", "USD").eq("is_active", true).maybeSingle(),
+  ]);
+  if (checkoutError) safeDatabaseError(checkoutError, "JABIYEN_CHECKOUT_LOOKUP");
+  if (paymentError) safeDatabaseError(paymentError, "JABIYEN_PAYMENT_LOOKUP");
+  if (itemsError) safeDatabaseError(itemsError, "JABIYEN_ITEMS_LOOKUP");
+  if (rateError) safeDatabaseError(rateError, "JABIYEN_RATE_LOOKUP");
+  if (!checkout || !payment || !Array.isArray(items) || items.length < 1
+      || checkout.customer_email?.trim().toLowerCase() !== email
+      || checkout.currency !== "BDT" || checkout.status !== "converted"
+      || checkout.delivery_fee_status !== "confirmed"
+      || payment.method !== "cod" || payment.status !== "awaiting_collection" || payment.currency !== "BDT") {
+    throw new PaymentServiceError("ORDER_NOT_PAYABLE", 404, "The order is not available for payment.");
+  }
+
+  const subtotalMinor = parseMinorUnits(checkout.subtotal);
+  const deliveryMinor = parseMinorUnits(checkout.delivery_fee);
+  const totalMinor = parseMinorUnits(checkout.total_amount);
+  const paymentDueMinor = payment.amount_due == null ? totalMinor : parseMinorUnits(payment.amount_due);
+  if (subtotalMinor == null || deliveryMinor == null || totalMinor == null || paymentDueMinor == null
+      || subtotalMinor <= 0n || deliveryMinor < 0n || subtotalMinor + deliveryMinor !== totalMinor || paymentDueMinor !== totalMinor) {
+    throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The delivery fee or order total is not confirmed yet.");
+  }
+
+  let itemSubtotal = 0n;
+  const itemNames: string[] = [];
+  for (const item of items) {
+    const quantity = Number(item.quantity);
+    const unitMinor = parseMinorUnits(item.unit_price);
+    const lineMinor = parseMinorUnits(item.line_total);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10 || unitMinor == null || lineMinor == null
+        || unitMinor * BigInt(quantity) !== lineMinor) {
+      throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The saved order items do not match the order total.");
+    }
+    itemSubtotal += lineMinor;
+    if (itemNames.length < 5) {
+      itemNames.push(`${String(item.product_name).slice(0, 80)}${item.variant_name ? ` (${String(item.variant_name).slice(0, 40)})` : ""} × ${quantity}`);
+    }
+  }
+  if (itemSubtotal !== subtotalMinor) {
+    throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The saved order items do not match the order total.");
+  }
+
+  const rateMicros = parseRateMicros(usdRate?.exchange_rate);
+  if (!usdRate?.is_active || rateMicros == null || rateMicros <= 0n || rateMicros > 1_000_000n) {
+    throw new PaymentServiceError("USD_RATE_UNAVAILABLE", 503, "The USD conversion rate is not configured safely.");
+  }
+  const usdMinorBigInt = (totalMinor * rateMicros + 500_000n) / 1_000_000n;
+  if (usdMinorBigInt < 1n || usdMinorBigInt > 999_999_999_999n) {
+    throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The converted order total is outside the supported range.");
+  }
+  const usdMinor = Number(usdMinorBigInt);
+  const rateText = `${rateMicros / 1_000_000n}.${String(rateMicros % 1_000_000n).padStart(6, "0")}`;
+  const description = `Original total BDT ${formatMinorUnits(totalMinor)} (items ${formatMinorUnits(subtotalMinor)}, delivery ${formatMinorUnits(deliveryMinor)}); USD/BDT rate ${rateText}; ${itemNames.join(", ")}`.slice(0, 500);
+
+  const paymentRequest = await createPaymentRequest({
+    project_key: "jabiyen",
+    external_order_reference: order.order_number,
+    idempotency_key: checkout.idempotency_key,
+    amount_minor: usdMinor,
+    currency: "usd",
+    line_items: [{ name: `JABIYEN order ${order.order_number}`, description, quantity: 1, unit_amount_minor: usdMinor }],
+  }, input.identity);
+
+  const session = await createCheckoutSession({
+    paymentRequestId: paymentRequest.id,
+    idempotencyKey: checkout.idempotency_key,
+    origin: input.origin,
+    identity: input.identity,
+  });
+  return { ...session, order_number: order.order_number, amount_minor: usdMinor, currency: "usd" };
 }
 
 export async function getPaymentRequestStatus(paymentRequestId: string, identity: CentralIdentity) {

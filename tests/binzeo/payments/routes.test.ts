@@ -1,25 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  authenticateBearerToken: vi.fn(),
+  authenticatePaymentRequest: vi.fn(),
   consumeRateLimit: vi.fn(),
   createCheckoutSession: vi.fn(),
+  createJabiyenOrderCheckoutSession: vi.fn(),
   getPaymentRequestStatus: vi.fn(),
   handleStripeWebhook: vi.fn(),
 }));
 
-vi.mock("@/binzeo/auth/identity", () => ({ authenticateBearerToken: mocks.authenticateBearerToken }));
+vi.mock("@/binzeo/auth/identity", () => ({ authenticatePaymentRequest: mocks.authenticatePaymentRequest }));
 vi.mock("@/common/security/rate-limit", () => ({ consumeRateLimit: mocks.consumeRateLimit }));
 vi.mock("@/binzeo/payments/service", () => ({
   PaymentServiceError: class PaymentServiceError extends Error {
     constructor(readonly code: string, readonly status: number, message: string) { super(message); }
   },
   createCheckoutSession: mocks.createCheckoutSession,
+  createJabiyenOrderCheckoutSession: mocks.createJabiyenOrderCheckoutSession,
   getPaymentRequestStatus: mocks.getPaymentRequestStatus,
   handleStripeWebhook: mocks.handleStripeWebhook,
 }));
 
 import { POST as createCheckout } from "@/binzeo/api/v1/payments/checkout-sessions/route";
+import { POST as createJabiyenCheckout } from "@/binzeo/api/v1/payments/jabiyen/checkout-sessions/route";
 import { GET as getStatus } from "@/binzeo/api/v1/payments/requests/[requestId]/route";
 import { POST as stripeWebhook } from "@/binzeo/api/v1/payments/stripe/webhook/route";
 
@@ -30,6 +33,7 @@ const identity = {
 };
 const paymentRequestId = "fa240890-b6ad-42a4-97a0-bdf4b58a7b01";
 const idempotencyKey = "0b1a2c3d-4e5f-4a6b-8c9d-0e1f2a3b4c5d";
+const orderNumber = "JBY-20261023-12345678";
 
 function authorizedRequest(url: string, method: string, body?: string) {
   return new Request(url, {
@@ -46,9 +50,10 @@ function authorizedRequest(url: string, method: string, body?: string) {
 describe("central payment route boundaries", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.authenticateBearerToken.mockResolvedValue({ ok: true, identity });
+    mocks.authenticatePaymentRequest.mockResolvedValue({ ok: true, identity });
     mocks.consumeRateLimit.mockResolvedValue({ allowed: true, remaining: 9 });
     mocks.createCheckoutSession.mockResolvedValue({ checkout_url: "https://checkout.stripe.com/c/pay_test", status: "open" });
+    mocks.createJabiyenOrderCheckoutSession.mockResolvedValue({ checkout_url: "https://checkout.stripe.com/c/pay_test", status: "open" });
     mocks.getPaymentRequestStatus.mockResolvedValue({ id: paymentRequestId, status: "pending", latest_attempt: null });
     mocks.handleStripeWebhook.mockResolvedValue({ received: true, processed: true });
   });
@@ -85,8 +90,36 @@ describe("central payment route boundaries", () => {
     expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
   });
 
-  it("requires a Central Auth bearer identity before creating checkout", async () => {
-    mocks.authenticateBearerToken.mockResolvedValueOnce({ ok: false, status: 401, code: "INVALID_TOKEN", message: "Invalid token." });
+  it("accepts only a JABIYEN order number and delegates amount checks to the central adapter", async () => {
+    const response = await createJabiyenCheckout(authorizedRequest("https://api.example/v1/payments/jabiyen/checkout-sessions", "POST", JSON.stringify({
+      order_number: orderNumber,
+    })));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.success).toBe(true);
+    expect(mocks.createJabiyenOrderCheckoutSession).toHaveBeenCalledWith({
+      orderNumber,
+      origin: "https://store.example",
+      identity,
+    });
+  });
+
+  it("rejects browser-supplied price, identity, and return URLs on the JABIYEN handoff", async () => {
+    const response = await createJabiyenCheckout(authorizedRequest("https://api.example/v1/payments/jabiyen/checkout-sessions", "POST", JSON.stringify({
+      order_number: orderNumber,
+      amount_minor: 1,
+      currency: "usd",
+      customer_email: "attacker@example.com",
+      success_url: "https://attacker.example/thanks",
+    })));
+
+    expect(response.status).toBe(400);
+    expect(mocks.createJabiyenOrderCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("requires a verified Central Auth identity before creating checkout", async () => {
+    mocks.authenticatePaymentRequest.mockResolvedValueOnce({ ok: false, status: 401, code: "INVALID_TOKEN", message: "Invalid token." });
     const response = await createCheckout(authorizedRequest("https://api.example/v1/payments/checkout-sessions", "POST", JSON.stringify({
       payment_request_id: paymentRequestId,
       idempotency_key: idempotencyKey,
@@ -97,7 +130,7 @@ describe("central payment route boundaries", () => {
   });
 
   it("returns payment status through the authenticated owner-bound service", async () => {
-    const response = await getStatus(authorizedRequest("https://api.example/v1/payments/requests/" + paymentRequestId, "GET"), {
+    const response = await getStatus(authorizedRequest(`https://api.example/v1/payments/requests/${paymentRequestId}`, "GET"), {
       params: Promise.resolve({ requestId: paymentRequestId }),
     });
 

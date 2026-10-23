@@ -1,6 +1,7 @@
 import "server-only";
 import type { User } from "@supabase/supabase-js";
 import { createUserScopedClient } from "@/common/database/supabase/clients";
+import { createClient as createAuthServerClient } from "@/binzeo/auth/lib/supabase/server";
 
 export type CentralProfile = {
   id: string;
@@ -50,6 +51,46 @@ export async function authenticateBearerToken(request: Request): Promise<Identit
   } catch (error) {
     console.error("[CENTRAL_IDENTITY_ERROR]", error);
     return { ok: false, status: 503, code: "IDENTITY_SERVICE_UNAVAILABLE", message: "Identity verification is temporarily unavailable." };
+  }
+}
+
+/**
+ * Allows the Auth-owned customer payment page to use its Central Auth cookie.
+ * Other browser origins must continue to use an explicit bearer token.
+ */
+export async function authenticatePaymentRequest(request: Request): Promise<IdentityResult> {
+  if (request.headers.get("authorization")) return authenticateBearerToken(request);
+
+  const configuredAuthUrl = process.env.AUTH_APP_URL?.trim();
+  const requestOrigin = request.headers.get("origin");
+  let configuredAuthOrigin: string | null = null;
+  try {
+    if (configuredAuthUrl) configuredAuthOrigin = new URL(configuredAuthUrl).origin;
+  } catch {
+    configuredAuthOrigin = null;
+  }
+
+  if (!requestOrigin || !configuredAuthOrigin || requestOrigin !== configuredAuthOrigin) {
+    return { ok: false, status: 403, code: "PAYMENT_UI_ORIGIN_NOT_ALLOWED", message: "The payment page origin is not allowed." };
+  }
+
+  if (!request.headers.get("cookie")) {
+    return { ok: false, status: 401, code: "CENTRAL_SESSION_REQUIRED", message: "A signed-in Central Auth session is required." };
+  }
+
+  try {
+    const authClient = await createAuthServerClient();
+    const { data: { session }, error } = await authClient.auth.getSession();
+    if (error || !session?.access_token) {
+      return { ok: false, status: 401, code: "CENTRAL_SESSION_INVALID", message: "The Central Auth session is invalid or expired." };
+    }
+
+    return authenticateBearerToken(new Request(request.url, {
+      headers: { authorization: `Bearer ${session.access_token}` },
+    }));
+  } catch (error) {
+    console.error("[CENTRAL_PAYMENT_SESSION_ERROR]", error instanceof Error ? error.name : "UNKNOWN");
+    return { ok: false, status: 503, code: "CENTRAL_SESSION_UNAVAILABLE", message: "Central Auth is temporarily unavailable." };
   }
 }
 
