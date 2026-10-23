@@ -2,6 +2,7 @@ import "server-only";
 import type { User } from "@supabase/supabase-js";
 import { createUserScopedClient } from "@/common/database/supabase/clients";
 import { createClient as createAuthServerClient } from "@/binzeo/auth/lib/supabase/server";
+import { getPaymentUiRequestOrigin } from "@/binzeo/auth/payment-ui-origin";
 
 export type CentralProfile = {
   id: string;
@@ -62,7 +63,7 @@ export async function authenticatePaymentRequest(request: Request): Promise<Iden
   if (request.headers.get("authorization")) return authenticateBearerToken(request);
 
   const configuredAuthUrl = process.env.AUTH_APP_URL?.trim();
-  const requestOrigin = request.headers.get("origin");
+  const requestOrigin = getPaymentUiRequestOrigin(request);
   let configuredAuthOrigin: string | null = null;
   try {
     if (configuredAuthUrl) configuredAuthOrigin = new URL(configuredAuthUrl).origin;
