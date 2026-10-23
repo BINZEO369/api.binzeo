@@ -25,11 +25,17 @@ export async function runJabiyenGateway(
   // Accept both the clean canonical path and the old /api/<path> variant.
   const routePath = path[0] === "api" ? path.slice(1) : path;
   const url = `${prefix}/${routePath.join("/")}${new URL(request.url).search}`;
+  const incomingHeaders = Object.fromEntries(request.headers.entries());
+  // The body has already been parsed above. Do not expose stream-length
+  // headers to express.json(), otherwise node-mocks-http makes the parser
+  // wait for a second body stream and write requests can hang indefinitely.
+  delete incomingHeaders["content-length"];
+  delete incomingHeaders["transfer-encoding"];
   const incoming = createRequest({
     method: request.method as never,
     url,
     originalUrl: url,
-    headers: Object.fromEntries(request.headers.entries()),
+    headers: incomingHeaders,
     body: parsedBody as never,
   });
   const outgoing = createResponse({ eventEmitter: EventEmitter });
