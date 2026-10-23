@@ -151,6 +151,29 @@ function parsePayload(
   return { payload };
 }
 
+class WriteTimeoutError extends Error {
+  constructor() {
+    super("JABIYEN section write timed out");
+    this.name = "WriteTimeoutError";
+  }
+}
+
+async function withWriteTimeout<T>(operation: (signal: AbortSignal) => PromiseLike<T>): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new WriteTimeoutError());
+    }, 7000);
+  });
+  try {
+    return await Promise.race([operation(controller.signal), timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 router.get("/api/admin/session", adminAuth, (req, res) => {
   const adminRequest = req as AuthenticatedAdminRequest;
   res.json({
@@ -208,17 +231,21 @@ router.post("/api/admin/tables/:table", adminAuth, async (req, res) => {
   const parsed = parsePayload(req.body, section, true);
   if (parsed.error) return res.status(400).json({ success: false, error: parsed.error });
   try {
-    const { data, error } = await supabase
-      .from(section.table.name as never)
-      .insert(parsed.payload as never)
-      .select(section.table.columns.map((column) => column.name).join(","))
-      .single();
+    const { data, error } = await withWriteTimeout((signal) =>
+      supabase
+        .from(section.table.name as never)
+        .insert(parsed.payload as never)
+        .select(section.table.columns.map((column) => column.name).join(","))
+        .abortSignal(signal)
+        .single(),
+    );
     if (error) {
       console.error("[JABIYEN_ADMIN_SECTION_CREATE_FAILED]", { table: section.name, code: error.code });
       return res.status(error.code === "23505" ? 409 : 400).json({ success: false, error: error.code === "23505" ? "A record with the same unique value already exists." : "The record could not be created. Check the required fields and values." });
     }
     return res.status(201).json({ success: true, record: data });
-  } catch {
+  } catch (error) {
+    if (error instanceof WriteTimeoutError) return res.status(504).json({ success: false, error: "The save request timed out. Refresh the section to check whether it completed before trying again." });
     return res.status(500).json({ success: false, error: "The record could not be created." });
   }
 });
@@ -234,19 +261,23 @@ router.patch("/api/admin/tables/:table/:id", adminAuth, async (req, res) => {
     updatePayload.updated_at = new Date().toISOString();
   }
   try {
-    const { data, error } = await supabase
-      .from(section.table.name as never)
-      .update(updatePayload as never)
-      .eq(primaryKey, req.params.id)
-      .select(section.table.columns.map((column) => column.name).join(","))
-      .maybeSingle();
+    const { data, error } = await withWriteTimeout((signal) =>
+      supabase
+        .from(section.table.name as never)
+        .update(updatePayload as never)
+        .eq(primaryKey, req.params.id)
+        .abortSignal(signal)
+        .select(section.table.columns.map((column) => column.name).join(","))
+        .maybeSingle(),
+    );
     if (error) {
       console.error("[JABIYEN_ADMIN_SECTION_UPDATE_FAILED]", { table: section.name, code: error.code });
       return res.status(error.code === "23505" ? 409 : 400).json({ success: false, error: error.code === "23505" ? "A record with the same unique value already exists." : "The record could not be updated." });
     }
     if (!data) return res.status(404).json({ success: false, error: "Record not found." });
     return res.json({ success: true, record: data });
-  } catch {
+  } catch (error) {
+    if (error instanceof WriteTimeoutError) return res.status(504).json({ success: false, error: "The save request timed out. Refresh the section to check whether it completed before trying again." });
     return res.status(500).json({ success: false, error: "The record could not be updated." });
   }
 });
@@ -256,12 +287,15 @@ router.delete("/api/admin/tables/:table/:id", adminAuth, async (req, res) => {
   if (!section) return;
   const primaryKey = section.table.primaryKeys[0];
   try {
-    const { data, error } = await supabase
-      .from(section.table.name as never)
-      .delete()
-      .eq(primaryKey, req.params.id)
-      .select(primaryKey)
-      .maybeSingle();
+    const { data, error } = await withWriteTimeout((signal) =>
+      supabase
+        .from(section.table.name as never)
+        .delete()
+        .eq(primaryKey, req.params.id)
+        .abortSignal(signal)
+        .select(primaryKey)
+        .maybeSingle(),
+    );
     if (error) {
       console.error("[JABIYEN_ADMIN_SECTION_DELETE_FAILED]", { table: section.name, code: error.code });
       return res.status(error.code === "23503" ? 409 : 400).json({ success: false, error: error.code === "23503" ? "This record is still referenced by other content and cannot be deleted yet." : "The record could not be deleted." });
@@ -269,7 +303,8 @@ router.delete("/api/admin/tables/:table/:id", adminAuth, async (req, res) => {
     if (!data) return res.status(404).json({ success: false, error: "Record not found." });
     const record = data as unknown as Record<string, unknown>;
     return res.json({ success: true, id: record[primaryKey] });
-  } catch {
+  } catch (error) {
+    if (error instanceof WriteTimeoutError) return res.status(504).json({ success: false, error: "The save request timed out. Refresh the section to check whether it completed before trying again." });
     return res.status(500).json({ success: false, error: "The record could not be deleted." });
   }
 });

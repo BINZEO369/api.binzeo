@@ -24,6 +24,7 @@ function createQuery() {
     update: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
     eq: ReturnType<typeof vi.fn>;
+    abortSignal: ReturnType<typeof vi.fn>;
     single: ReturnType<typeof vi.fn>;
     maybeSingle: ReturnType<typeof vi.fn>;
   };
@@ -34,6 +35,7 @@ function createQuery() {
   query.update = vi.fn(() => query);
   query.delete = vi.fn(() => query);
   query.eq = vi.fn(() => query);
+  query.abortSignal = vi.fn(() => query);
   query.single = vi.fn(async () => ({ data: { id: 12, header_title: "About" }, error: null }));
   query.maybeSingle = vi.fn(async () => ({ data: { id: 12, header_title: "About" }, error: null }));
   return query;
@@ -126,6 +128,26 @@ describe("JABIYEN admin content sections", () => {
     expect(body.success).toBe(true);
     expect(mocks.from).toHaveBeenCalledWith("about_us");
     expect(query.insert).toHaveBeenCalledWith({ header_title: "About", section_description: "Our story" });
+  });
+
+  it("returns a clear timeout response when a database write never settles", async () => {
+    vi.useFakeTimers();
+    try {
+      const query = createQuery();
+      query.single = vi.fn(() => new Promise(() => {}));
+      mocks.from.mockReturnValueOnce(query);
+      const pendingRequest = request(["admin", "tables", "about_us"], {
+        method: "POST",
+        body: { header_title: "About", section_description: "Our story" },
+      });
+      await vi.advanceTimersByTimeAsync(7000);
+      const { response, body } = await pendingRequest;
+      expect(response.status).toBe(504);
+      expect(body.error).toContain("timed out");
+      expect(query.abortSignal).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("rejects attempts to edit fields outside the explicit allowlist", async () => {
