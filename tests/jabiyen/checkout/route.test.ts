@@ -112,7 +112,7 @@ describe("JABIYEN COD checkout RPC contract", () => {
           free_shipping_minimum: 3000,
           estimated_days_min: 2,
           estimated_days_max: 3,
-          currency: "BDT",
+          currency: "USD",
         },
       },
       error: null,
@@ -129,7 +129,7 @@ describe("JABIYEN COD checkout RPC contract", () => {
 
     expect(response.status).toBe(200);
     expect(payload.success).toBe(true);
-    expect(payload.quote.currency).toBe("BDT");
+    expect(payload.quote.currency).toBe("USD");
     expect(payload.quote.delivery_fee).toBe(0);
     expect(rpc).toHaveBeenCalledWith("get_jabiyen_shipping_quote", {
       p_country_code: "BD",
@@ -154,7 +154,7 @@ describe("JABIYEN COD checkout RPC contract", () => {
           estimated_days_max: null,
           quote_required: true,
           message: "আপনাকে পরে জানানো হবে",
-          currency: "BDT",
+          currency: "USD",
         },
         error: null,
       },
