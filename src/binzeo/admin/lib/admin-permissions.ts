@@ -10,6 +10,7 @@ export const ADMIN_PERMISSION_OPTIONS = [
   { id: "users.read", label: "Read user records", description: "Profiles and user directory" },
   { id: "users.manage", label: "Manage user accounts", description: "Status changes and user controls" },
   { id: "auth.read", label: "Read authentication metadata", description: "Account, login and verification metadata; no credentials" },
+  { id: "payments.read", label: "Read central payment records", description: "View payment website, account, order, amount and status records; no card data" },
   { id: "database.read", label: "Read database tables", description: "Allowlisted application tables" },
   { id: "sectors.manage", label: "Manage sectors", description: "Create, edit, activate and deactivate business sectors" },
   { id: "audit.read", label: "Read audit logs", description: "Administrative audit records" },

@@ -22,12 +22,15 @@ The payment service uses the verified Central Auth email and profile name to cre
 - `POST /v1/payments/checkout-sessions` — Trusted server-side integrations using an already-created central payment request; accepts only its request ID and idempotency key.
 - `GET /v1/payments/requests/{requestId}` — Authenticated, owner-scoped payment status.
 - `POST /v1/payments/stripe/webhook` — Stripe signature-authenticated endpoint; verifies the unmodified raw body using `STRIPE_WEBHOOK_SECRET`.
+- `GET /api/admin/payments` — Admin-only, paginated payment history across registered sites; requires `super_admin` or the dedicated `payments.read` permission. The Auth dashboard is `/admin/payments`.
 
 The central API constructs success/cancel return URLs from `payment_site_settings` and registered `platform_projects.allowed_origins`; neither is accepted from the browser. Stripe Checkout is hosted at `checkout.stripe.com`.
 
 ## Central database tables
 
 `payment_provider_settings` stores only non-secret global mode, enablement, merchant country, and default currency. `payment_site_settings` controls per-site enablement, currency, and safe relative return paths. `payment_requests` stores owner, site/order reference, final amount in Stripe minor units, currency, and immutable line-item snapshot. `payment_attempts` stores Checkout Session IDs and statuses. `payment_customers` maps Central Auth users to Stripe Customer IDs and account email/name snapshots. `payment_webhook_events` is an idempotent webhook inbox; raw payloads and card data are not stored.
+
+The admin history is a read-only joined view of these normalized central records, not a second copy of payment data. It identifies each row by website/project ID and key, Central Auth UUID and BINZEO user ID, external order ID, and central payment-request ID; it shows the charged amount/currency, status, created time, and webhook-confirmed paid time. User name/email are taken from the central payment customer snapshot when present. Card numbers and payment credentials are never exposed. Site and status filters plus bounded pagination are supported.
 
 All payment tables have RLS enabled and are restricted to the central server's `service_role`. Stripe secret values are never stored in the database, registry, API responses, or logs.
 
