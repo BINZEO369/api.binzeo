@@ -3,6 +3,7 @@ import { createHash, createHmac } from "node:crypto";
 import express from "express";
 import { z } from "zod";
 import { authenticateBearerToken } from "@/binzeo/auth/identity";
+import { sendJabiyenCodOrderConfirmationEmailOnce } from "@/binzeo/payments/order-confirmation-email";
 import { getJabiyenAdminDatabase } from "@/jabiyen/website/database";
 
 const router = express.Router();
@@ -19,6 +20,7 @@ const itemSchema = z.object({
 const checkoutSchema = z.object({
   idempotency_key: z.string().uuid(),
   access_token: z.string().regex(ACCESS_TOKEN_RE),
+  payment_method: z.enum(["cod", "stripe"]).default("cod"),
   customer: z.object({
     name: z.string().trim().max(120).optional().default(""),
     phone: z.string().trim().max(24).optional().default(""),
@@ -164,11 +166,25 @@ router.post("/api/orders", async (req, res) => {
     }
     if (!data?.ok) return res.status(errorStatus(data?.code || "UNKNOWN")).json({ success: false, code: data?.code || "ORDER_FAILED", error: data?.message || "We could not complete this order." });
 
+    let confirmationEmailStatus: "sent" | "pending" | "after_payment" = "after_payment";
+    if (parsed.data.payment_method === "cod") {
+      try {
+        const delivery = await sendJabiyenCodOrderConfirmationEmailOnce(data.order.order_number, accountEmail);
+        confirmationEmailStatus = delivery.sent || delivery.alreadySent ? "sent" : "pending";
+      } catch (emailError) {
+        confirmationEmailStatus = "pending";
+        console.error("[JABIYEN_ORDER_CONFIRMATION_EMAIL]", emailError instanceof Error ? emailError.name : "UNKNOWN");
+      }
+    }
+
     return res.status(data.duplicate ? 200 : 201).json({
       success: true,
       order: data.order,
       access_token: parsed.data.access_token,
-      message: "Your cash-on-delivery order has been received. The delivery fee and total are shown in your order details.",
+      confirmation_email_status: confirmationEmailStatus,
+      message: parsed.data.payment_method === "stripe"
+        ? "Your order is saved. Continue to BINZEO Central to pay securely with Stripe."
+        : "Your cash-on-delivery order has been received. The delivery fee and total are shown in your order details.",
     });
   } catch (error) {
     console.error("[JABIYEN_COD_ORDER_CREATE]", error instanceof Error ? error.name : "UNKNOWN");

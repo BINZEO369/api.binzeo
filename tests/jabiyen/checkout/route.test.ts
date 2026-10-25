@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runJabiyenGateway } from "@/jabiyen/admin/express-adapter";
 import checkout from "@/jabiyen/admin/checkout";
 
-const { rpc, authenticateBearerToken } = vi.hoisted(() => ({ rpc: vi.fn(), authenticateBearerToken: vi.fn() }));
+const { rpc, authenticateBearerToken, sendCodOrderConfirmationEmailOnce } = vi.hoisted(() => ({ rpc: vi.fn(), authenticateBearerToken: vi.fn(), sendCodOrderConfirmationEmailOnce: vi.fn() }));
 
 vi.mock("@/jabiyen/website/database", () => ({
   getJabiyenAdminDatabase: () => ({ rpc }),
 }));
 
 vi.mock("@/binzeo/auth/identity", () => ({ authenticateBearerToken }));
+vi.mock("@/binzeo/payments/order-confirmation-email", () => ({ sendJabiyenCodOrderConfirmationEmailOnce: sendCodOrderConfirmationEmailOnce }));
 
 const validCheckout = {
   idempotency_key: "550e8400-e29b-41d4-a716-446655440000",
@@ -33,6 +34,7 @@ const validCheckout = {
   quoted_delivery_fee: 80,
   items: [{ product_id: 12, variant_id: 34, quantity: 2 }],
   website: "",
+  payment_method: "cod",
 };
 
 function createPublicApiHarness() {
@@ -67,6 +69,7 @@ describe("JABIYEN COD checkout RPC contract", () => {
       },
       error: null,
     });
+    sendCodOrderConfirmationEmailOnce.mockResolvedValue({ sent: true, alreadySent: false });
   });
 
   it("calls the database RPC with the declared p_items parameter and returns the private token", async () => {
@@ -88,7 +91,9 @@ describe("JABIYEN COD checkout RPC contract", () => {
     expect(payload.success).toBe(true);
     expect(payload.order.order_number).toBe("JBY-261022-A1B2C3D4");
     expect(payload.access_token).toBe(validCheckout.access_token);
+    expect(payload.confirmation_email_status).toBe("sent");
     expect(rpc).toHaveBeenCalledTimes(1);
+    expect(sendCodOrderConfirmationEmailOnce).toHaveBeenCalledWith("JBY-261022-A1B2C3D4", "test@example.com");
 
     const [functionName, args] = rpc.mock.calls[0];
     expect(functionName).toBe("create_jabiyen_cod_order");
@@ -98,6 +103,26 @@ describe("JABIYEN COD checkout RPC contract", () => {
     expect(args.p_customer.delivery_type).toBe("Standard");
     expect(args.p_customer.quoted_delivery_fee).toBe(80);
     expect(args.p_customer.address).toMatchObject({ country_code: "BD", state: "Dhaka" });
+  });
+
+  it("defers Stripe confirmation until a verified payment webhook", async () => {
+    const request = new Request("https://api.example/api/orders", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer central-test-token" },
+      body: JSON.stringify({ ...validCheckout, payment_method: "stripe" }),
+    });
+
+    const response = await runJabiyenGateway(
+      createPublicApiHarness(),
+      request,
+      "/api/jabiyen-public",
+      ["orders"],
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(payload.confirmation_email_status).toBe("after_payment");
+    expect(sendCodOrderConfirmationEmailOnce).not.toHaveBeenCalled();
   });
 
   it("returns the Central API BDT shipping quote for the selected saved address", async () => {

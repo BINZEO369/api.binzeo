@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { CentralIdentity } from "@/binzeo/auth/identity";
 import { createPrivilegedClient } from "@/common/database/supabase/clients";
 import { getJabiyenAdminDatabase } from "@/jabiyen/website/database";
+import { sendPaidJabiyenStripeOrderConfirmationEmailOnce } from "@/binzeo/payments/order-confirmation-email";
 
 export class PaymentServiceError extends Error {
   constructor(
@@ -626,10 +627,13 @@ export async function handleStripeWebhook(rawBody: Buffer, signature: string | n
             ...(status === "paid" ? { paid_at: new Date().toISOString() } : {}),
           }).eq("id", attempt.id);
           if (updateAttemptError) safeDatabaseError(updateAttemptError, "WEBHOOK_ATTEMPT_UPDATE");
-          if (status === "paid") {
-            const { error: updateRequestError } = await db.from("payment_requests").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", attempt.payment_request_id);
-            if (updateRequestError) safeDatabaseError(updateRequestError, "WEBHOOK_REQUEST_UPDATE");
-          }
+        }
+        if (status === "paid" && attempt.status !== "refunded") {
+          const { error: updateRequestError } = await db.from("payment_requests").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", attempt.payment_request_id);
+          if (updateRequestError) safeDatabaseError(updateRequestError, "WEBHOOK_REQUEST_UPDATE");
+          // Each successful delivery is independently idempotent; Stripe retries can
+          // recover a temporary SMTP failure without sending duplicate confirmations.
+          await sendPaidJabiyenStripeOrderConfirmationEmailOnce(attempt.payment_request_id);
         }
       }
     }

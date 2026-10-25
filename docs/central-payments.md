@@ -8,6 +8,8 @@ All payment configuration, requests, attempts, Stripe Customer mappings, and web
 
 The central payment provider is configured for the user-selected United States / USD setup and is currently in shared `test` mode in the central database; all sites use this mode. The connected Stripe MCP account is a test sandbox, not the user's live merchant account. Test checkout requires a test `sk_test_...` key and test webhook signing secret in the `api-binzeo` Vercel Production environment. Real charges remain blocked by `STRIPE_LIVE_CHARGES_ENABLED=false`; before live use, switch the central provider mode to `live`, set the live key and webhook secret, and intentionally change the gate.
 
+Order confirmations use the existing central BINZEO SMTP transport and the shared Welcome-email layout. COD confirmations are sent after the JABIYEN order has been saved. Stripe confirmations are sent only after the signed webhook verifies the payment as paid; a browser return is never used as proof. The central `order_confirmation_email_deliveries` ledger deduplicates confirmations and records delivery attempts. If SMTP temporarily fails, COD order creation remains successful and the delivery is recorded for retry; Stripe webhook failures return a retryable response to Stripe.
+
 ## Server-side trust and amount rules
 
 The Auth payment page is protected by Central Auth. The central API accepts the Auth app's signed session only from the configured `AUTH_APP_URL` origin (or an authenticated Central Auth bearer token for server integrations). It derives the user ID, verified email, and profile name from Central Auth; the browser cannot submit a price, currency, customer identity, Stripe ID, or return URL.
@@ -22,13 +24,15 @@ The payment service uses the verified Central Auth email and profile name to cre
 - `POST /v1/payments/checkout-sessions` — Trusted server-side integrations using an already-created central payment request; accepts only its request ID and idempotency key.
 - `GET /v1/payments/requests/{requestId}` — Authenticated, owner-scoped payment status.
 - `POST /v1/payments/stripe/webhook` — Stripe signature-authenticated endpoint; verifies the unmodified raw body using `STRIPE_WEBHOOK_SECRET`.
-- `GET /api/admin/payments` — Admin-only, paginated payment history across registered sites; requires `super_admin` or the dedicated `payments.read` permission. The Auth dashboard is `/admin/payments`.
+- `GET /api/admin/payments` — Admin-only, paginated payment history across registered sites; requires `super_admin` or the dedicated `payments.read` permission. The existing admin dashboard page is `https://admin-binzeo.vercel.app/dashboard/payments`.
 
 The central API constructs success/cancel return URLs from `payment_site_settings` and registered `platform_projects.allowed_origins`; neither is accepted from the browser. Stripe Checkout is hosted at `checkout.stripe.com`.
 
 ## Central database tables
 
-`payment_provider_settings` stores only non-secret global mode, enablement, merchant country, and default currency. `payment_site_settings` controls per-site enablement, currency, and safe relative return paths. `payment_requests` stores owner, site/order reference, final amount in Stripe minor units, currency, and immutable line-item snapshot. `payment_attempts` stores Checkout Session IDs and statuses. `payment_customers` maps Central Auth users to Stripe Customer IDs and account email/name snapshots. `payment_webhook_events` is an idempotent webhook inbox; raw payloads and card data are not stored.
+`payment_provider_settings` stores only non-secret global mode, enablement, merchant country, and default currency. `payment_site_settings` controls per-site enablement, currency, and safe relative return paths. `payment_requests` stores owner, site/order reference, final amount in Stripe minor units, currency, and immutable line-item snapshot. `payment_attempts` stores Checkout Session IDs and statuses. `payment_customers` maps Central Auth users to Stripe Customer IDs and account email/name snapshots. `payment_webhook_events` is an idempotent Stripe webhook inbox; raw payloads and card data are not stored.
+
+`order_confirmation_email_deliveries` is a service-role-only central ledger that deduplicates JABIYEN order confirmations and records SMTP delivery attempts. It stores delivery status and the recipient address, but never stores card data or SMTP credentials.
 
 The admin history is a read-only joined view of these normalized central records, not a second copy of payment data. It identifies each row by website/project ID and key, Central Auth UUID and BINZEO user ID, external order ID, and central payment-request ID; it shows the charged amount/currency, status, created time, and webhook-confirmed paid time. User name/email are taken from the central payment customer snapshot when present. Card numbers and payment credentials are never exposed. Site and status filters plus bounded pagination are supported.
 
