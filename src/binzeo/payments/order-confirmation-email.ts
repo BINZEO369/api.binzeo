@@ -9,10 +9,42 @@ const ORDER_NUMBER_RE = /^JBY-\d{6}-[A-F0-9]{8}$/;
 
 type OrderEmailSnapshot = {
   order_number: string;
+  total_amount?: string | number | null;
   customer?: { name?: string | null; email?: string | null } | null;
   payment?: { method?: string | null } | null;
   [key: string]: unknown;
 };
+
+function parseMinorUnits(value: string | number | null | undefined) {
+  const match = String(value ?? "").trim().match(/^(\d{1,10})(?:\.(\d{1,2}))?$/);
+  if (!match) return null;
+  return BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
+}
+
+function parseRateMicros(value: string | number | null | undefined) {
+  const match = String(value ?? "").trim().match(/^(\d{1,3})(?:\.(\d{1,6}))?$/);
+  if (!match) return null;
+  return BigInt(match[1]) * 1_000_000n + BigInt((match[2] ?? "").padEnd(6, "0"));
+}
+
+async function codOrderUsdMinor(order: OrderEmailSnapshot) {
+  const totalBdtMinor = parseMinorUnits(order.total_amount);
+  if (totalBdtMinor == null || totalBdtMinor <= 0n) throw new Error("JABIYEN_ORDER_TOTAL_INVALID");
+  const jabiDb = getJabiyenAdminDatabase();
+  const { data: rate, error } = await jabiDb.from("currency_rates")
+    .select("exchange_rate,is_active")
+    .eq("currency_code", "USD")
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) databaseFailure("USD_RATE_LOOKUP", error);
+  const rateMicros = parseRateMicros(rate?.exchange_rate);
+  if (!rate?.is_active || rateMicros == null || rateMicros <= 0n || rateMicros > 1_000_000n) {
+    throw new Error("USD_RATE_UNAVAILABLE");
+  }
+  const amount = (totalBdtMinor * rateMicros + 500_000n) / 1_000_000n;
+  if (amount <= 0n || amount > 999_999_999_999n) throw new Error("JABIYEN_USD_TOTAL_INVALID");
+  return Number(amount);
+}
 
 type DeliveryRecord = {
   id: string;
@@ -118,12 +150,15 @@ async function sendOnce({ order, paymentMethod, expectedEmail, stripeAmountMinor
   if (!claimed) return { sent: false, alreadyInProgress: true };
 
   try {
+    const orderAmountUsdMinor = paymentMethod === "cod" ? await codOrderUsdMinor(order) : (stripeAmountMinor ?? Number.NaN);
+    if (!Number.isSafeInteger(orderAmountUsdMinor) || orderAmountUsdMinor <= 0 || (paymentMethod === "stripe" && stripeCurrency !== "usd")) {
+      throw new Error("ORDER_USD_AMOUNT_INVALID");
+    }
     const content = buildJabiyenOrderConfirmationEmail({
       siteUrl: getPublicSiteUrl(),
       order,
       paymentMethod,
-      stripeAmountMinor,
-      stripeCurrency,
+      orderAmountUsdMinor: Number(orderAmountUsdMinor),
     });
     const info = await transporter.sendMail({ from: EMAIL_FROM, to: email, subject: content.subject, html: content.html });
     const rejected = Array.isArray(info.rejected) && info.rejected.length > 0;

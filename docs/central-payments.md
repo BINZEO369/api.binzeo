@@ -10,6 +10,8 @@ The central payment provider is configured for the user-selected United States /
 
 Order confirmations use the existing central BINZEO SMTP transport and the shared Welcome-email layout. COD confirmations are sent after the JABIYEN order has been saved. Stripe confirmations are sent only after the signed webhook verifies the payment as paid; a browser return is never used as proof. The central `order_confirmation_email_deliveries` ledger deduplicates confirmations and records delivery attempts. If SMTP temporarily fails, COD order creation remains successful and the delivery is recorded for retry; Stripe webhook failures return a retryable response to Stripe.
 
+Order confirmation emails display money in USD only. Stripe emails show the verified USD amount actually charged. COD emails show the USD equivalent calculated with the active JABIYEN USD rate and clearly state that the COD amount is collected in the store's local currency; local-currency figures are not printed in the email.
+
 ## Server-side trust and amount rules
 
 The Auth payment page is protected by Central Auth. The central API accepts the Auth app's signed session only from the configured `AUTH_APP_URL` origin (or an authenticated Central Auth bearer token for server integrations). It derives the user ID, verified email, and profile name from Central Auth; the browser cannot submit a price, currency, customer identity, Stripe ID, or return URL.
