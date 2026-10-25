@@ -90,6 +90,11 @@ describe("JABIYEN admin content sections", () => {
     expect(names).toContain("orders");
     expect(names).toContain("order_payments");
     expect(body.tables.find((table: { name: string }) => table.name === "orders").canWrite).toBe(false);
+    const editableSections = body.tables.filter((table: { editableColumns: string[] }) => table.editableColumns.length > 0);
+    expect(editableSections.length).toBeGreaterThan(20);
+    expect(editableSections.every((table: { canWrite: boolean }) => table.canWrite)).toBe(true);
+    expect(body.tables.find((table: { name: string }) => table.name === "products").path).toBe("/product");
+    expect(body.tables.find((table: { name: string }) => table.name === "categories").path).toBe("/category-menu-item");
   });
 
   it("provides the sign-in session verification endpoint expected by the static frontend", async () => {

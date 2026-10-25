@@ -20,6 +20,7 @@ router.get('/api/admin/products', adminAuth, async (req, res) => {
             is_hot,
             is_out_of_stock,
             is_limited_edition,
+            product_status = 'active',
             sort_by = 'created_at',
             sort_order = 'desc'
         } = req.query;
@@ -50,6 +51,12 @@ router.get('/api/admin/products', adminAuth, async (req, res) => {
         if (is_hot) query = query.eq('is_hot', is_hot === 'true');
         if (is_out_of_stock) query = query.eq('is_out_of_stock', is_out_of_stock === 'true');
         if (is_limited_edition) query = query.eq('is_limited_edition', is_limited_edition === 'true');
+
+        if (product_status === 'active') query = query.eq('is_active', true);
+        else if (product_status === 'archived') query = query.eq('is_active', false);
+        else if (product_status !== 'all') {
+            return res.status(400).json({ success: false, error: 'Product status must be active, archived or all.' });
+        }
 
         // Sorting
         const validSortColumns = ['title', 'price', 'created_at', 'updated_at', 'sort_order', 'sku'];
@@ -89,6 +96,7 @@ router.get('/api/admin/products/all', adminAuth, async (req, res) => {
         const { data, error } = await supabase
             .from('products')
             .select('id, title, sku, slug, price, img, is_active')
+            .eq('is_active', true)
             .order('title', { ascending: true });
 
         if (error) throw error;
@@ -473,14 +481,30 @@ router.put('/api/admin/products/:id', adminAuth, async (req, res) => {
 // Delete product
 router.delete('/api/admin/products/:id', adminAuth, async (req, res) => {
     try {
-        // Product videos and banners will be automatically deleted due to ON DELETE CASCADE
         const { data, error } = await supabase
             .from('products')
             .delete()
             .eq('id', req.params.id)
             .select()
-            .single();
+            .maybeSingle();
 
+        if (error?.code === '23503') {
+            // Preserve order line-item foreign keys and historical order snapshots.
+            const { data: archived, error: archiveError } = await supabase
+                .from('products')
+                .update({ is_active: false })
+                .eq('id', req.params.id)
+                .select()
+                .maybeSingle();
+            if (archiveError) throw archiveError;
+            if (!archived) return res.status(404).json({ success: false, error: 'Product not found' });
+            return res.json({
+                success: true,
+                archived: true,
+                message: 'Product is part of order history, so it was archived and removed from the storefront.',
+                product: archived
+            });
+        }
         if (error) throw error;
         if (!data) {
             return res.status(404).json({ 
@@ -499,6 +523,23 @@ router.delete('/api/admin/products/:id', adminAuth, async (req, res) => {
             success: false, 
             error: err.message 
         });
+    }
+});
+
+// Restore an archived product without changing its order history.
+router.patch('/api/admin/products/:id/restore', adminAuth, async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('products')
+            .update({ is_active: true })
+            .eq('id', req.params.id)
+            .select()
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) return res.status(404).json({ success: false, error: 'Product not found' });
+        return res.json({ success: true, message: 'Product restored successfully.', product: data });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
     }
 });
 

@@ -130,47 +130,47 @@ export const JABIYEN_CONTENT_SECTION_SPECS: JabiyenContentSectionSpec[] = [
     editableColumns: [],
   },
   {
-    name: "categories", title: "Categories", description: "Read-only category records.", group: "Catalog", path: "/admin/database/categories",
+    name: "categories", title: "Categories", description: "Manage categories, subcategories and store menus.", group: "Catalog", path: "/category-menu-item",
     editableColumns: [],
   },
   {
-    name: "subcategories", title: "Subcategories", description: "Read-only subcategory records.", group: "Catalog", path: "/admin/database/subcategories",
+    name: "subcategories", title: "Subcategories", description: "Manage categories, subcategories and store menus.", group: "Catalog", path: "/category-menu-item",
     editableColumns: [],
   },
   {
-    name: "menu_items", title: "Menu Items", description: "Read-only navigation menu records.", group: "Catalog", path: "/admin/database/menu_items",
+    name: "menu_items", title: "Menu Items", description: "Manage categories, subcategories and store menus.", group: "Catalog", path: "/category-menu-item",
     editableColumns: [],
   },
   {
-    name: "products", title: "Products", description: "Read-only product records.", group: "Catalog", path: "/admin/database/products",
+    name: "products", title: "Products", description: "Add, edit, archive and restore storefront products.", group: "Catalog", path: "/product",
     editableColumns: [],
   },
   {
-    name: "product_videos", title: "Product Videos", description: "Read-only product video records.", group: "Catalog", path: "/admin/database/product_videos",
+    name: "product_videos", title: "Product Videos", description: "Manage product videos in the product editor.", group: "Catalog", path: "/product",
     editableColumns: [],
   },
   {
-    name: "product_banners", title: "Product Banners", description: "Read-only product banner records.", group: "Catalog", path: "/admin/database/product_banners",
+    name: "product_banners", title: "Product Banners", description: "Manage product banners in the product editor.", group: "Catalog", path: "/product",
     editableColumns: [],
   },
   {
-    name: "hero", title: "Hero Banners", description: "Read-only primary hero banner records.", group: "Catalog", path: "/admin/database/hero",
+    name: "hero", title: "Hero Banners", description: "Add, edit and remove primary hero banners.", group: "Catalog", path: "/herobanner",
     editableColumns: [],
   },
   {
-    name: "hero_videos", title: "Hero Videos", description: "Read-only hero video records.", group: "Catalog", path: "/admin/database/hero_videos",
+    name: "hero_videos", title: "Hero Videos", description: "Add, edit and remove hero videos.", group: "Catalog", path: "/herovideo",
     editableColumns: [],
   },
   {
-    name: "product_colors", title: "Product Colors", description: "Read-only product color records.", group: "Catalog", path: "/admin/database/product_colors",
+    name: "product_colors", title: "Product Colors", description: "Manage product colors and sizes in the variant editor.", group: "Catalog", path: "/product-variant",
     editableColumns: [],
   },
   {
-    name: "color_sizes", title: "Color Sizes", description: "Read-only color and size records.", group: "Catalog", path: "/admin/database/color_sizes",
+    name: "color_sizes", title: "Color Sizes", description: "Manage product colors and sizes in the variant editor.", group: "Catalog", path: "/product-variant",
     editableColumns: [],
   },
   {
-    name: "product_variants", title: "Product Variants", description: "Read-only product variant records.", group: "Catalog", path: "/admin/database/product_variants",
+    name: "product_variants", title: "Product Variants", description: "Add, edit and remove product variants.", group: "Catalog", path: "/product-variant",
     editableColumns: [],
   },
   {

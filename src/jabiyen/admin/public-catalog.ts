@@ -18,6 +18,7 @@ router.get('/api/products', async (req, res) => {
                 categories:category_id (name),
                 subcategories:subcategory_id (name)
             `)
+            .eq('is_active', true)
             .order('created_at', { ascending: false });
         
         if (error) return res.status(500).json({ error: error.message });
@@ -38,6 +39,7 @@ router.get('/api/product/:slug', async (req, res) => {
                 categories:category_id (name),
                 subcategories:subcategory_id (name)
             `)
+            .eq('is_active', true)
             .order('created_at', { ascending: false });
         
         if (error) return res.status(500).json({ error: error.message });
@@ -126,6 +128,7 @@ router.get('/api/categories/:slug/products', async (req, res) => {
                 subcategories:subcategory_id (name)
             `)
             .eq('category_id', category.id)
+            .eq('is_active', true)
             .order('created_at', { ascending: false });
         
         if (error) return res.status(500).json({ error: error.message });
@@ -243,6 +246,7 @@ router.get('/api/subcategories/:slug/products', async (req, res) => {
                 subcategories:subcategory_id (name)
             `)
             .eq('subcategory_id', subcategory.id)
+            .eq('is_active', true)
             .order('created_at', { ascending: false });
         
         if (error) return res.status(500).json({ error: error.message });
