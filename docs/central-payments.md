@@ -10,7 +10,7 @@ The central payment provider is configured for the user-selected United States /
 
 Order confirmations use the existing central BINZEO SMTP transport and the shared Welcome-email layout. COD confirmations are sent after the JABIYEN order has been saved. Stripe confirmations are sent only after the signed webhook verifies the payment as paid; a browser return is never used as proof. The central `order_confirmation_email_deliveries` ledger deduplicates confirmations and records delivery attempts. If SMTP temporarily fails, COD order creation remains successful and the delivery is recorded for retry; Stripe webhook failures return a retryable response to Stripe.
 
-Order confirmation emails display money in USD only. Stripe emails show the verified USD amount actually charged. COD emails show the USD equivalent calculated with the active JABIYEN USD rate and clearly state that the COD amount is collected in the store's local currency; local-currency figures are not printed in the email.
+Order confirmation emails display money in USD only. Stripe emails show the verified USD amount actually charged. COD emails display the saved JABIYEN order total directly as USD, without an exchange-rate conversion or a local-currency disclaimer.
 
 ## Server-side trust and amount rules
 

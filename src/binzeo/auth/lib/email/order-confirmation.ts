@@ -78,9 +78,6 @@ export function buildJabiyenOrderConfirmationEmail({
 
   const amount = formatUsdMinorAmount(orderAmountUsdMinor);
   const paymentMethodLabel = paymentMethod === "cod" ? "Cash on Delivery" : "Stripe · Paid";
-  const codNote = paymentMethod === "cod"
-    ? `<p style="margin:0 0 18px;color:#ffffff;font-size:11px;line-height:1.6;opacity:.9;">The USD amount is an estimated equivalent for reference. Cash on Delivery is collected at delivery in the store's local currency.</p>`
-    : "";
   const estimatedDelivery = Number.isInteger(order.estimated_days_min) && Number.isInteger(order.estimated_days_max)
     ? `${order.estimated_days_min}–${order.estimated_days_max} days`
     : "As advised by the store";
@@ -98,7 +95,6 @@ export function buildJabiyenOrderConfirmationEmail({
       ${detailRow("Payment method", paymentMethodLabel)}
       ${detailRow("Estimated delivery", escapeEmailText(estimatedDelivery))}
     </table>
-    ${codNote}
     <div style="margin:0 0 22px;">
       <div style="margin-bottom:5px;color:#ffffff;font-size:10px;line-height:1.5;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">Delivering to</div>
       <div style="color:#ffffff;font-size:12px;line-height:1.65;">${escapeEmailText(addressText(order.shipping_address))}</div>
