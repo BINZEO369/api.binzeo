@@ -198,6 +198,8 @@ router.post('/api/admin/products', adminAuth, async (req, res) => {
     try {
         const { 
             title,
+            sku,
+            barcode,
             category_id,
             subcategory_id,
             description,
@@ -269,6 +271,8 @@ router.post('/api/admin/products', adminAuth, async (req, res) => {
             .from('products')
             .insert([{
                 title: title,
+                sku: sku || null,
+                barcode: barcode || null,
                 category_id: category_id || null,
                 subcategory_id: subcategory_id || null,
                 description: description || null,
@@ -331,6 +335,8 @@ router.put('/api/admin/products/:id', adminAuth, async (req, res) => {
     try {
         const { 
             title,
+            sku,
+            barcode,
             category_id,
             subcategory_id,
             description,
@@ -362,6 +368,8 @@ router.put('/api/admin/products/:id', adminAuth, async (req, res) => {
         const updates = {};
         
         if (title !== undefined) updates.title = title;
+        if (sku !== undefined) updates.sku = sku || null;
+        if (barcode !== undefined) updates.barcode = barcode || null;
         if (category_id !== undefined) updates.category_id = category_id;
         if (subcategory_id !== undefined) updates.subcategory_id = subcategory_id;
         if (description !== undefined) updates.description = description;
