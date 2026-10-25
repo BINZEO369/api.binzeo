@@ -416,19 +416,13 @@ function parseMinorUnits(value: unknown): bigint | null {
   return BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
 }
 
-function parseRateMicros(value: unknown): bigint | null {
-  const match = String(value ?? "").trim().match(/^(\d{1,3})(?:\.(\d{1,6}))?$/);
-  if (!match) return null;
-  return BigInt(match[1]) * 1_000_000n + BigInt((match[2] ?? "").padEnd(6, "0"));
-}
-
 function formatMinorUnits(value: bigint): string {
   return `${value / 100n}.${String(value % 100n).padStart(2, "0")}`;
 }
 
 /**
  * The Auth payment page submits only an order number. This adapter reads the
- * authoritative JABIYEN order and rate server-side; Stripe records are written
+ * authoritative JABIYEN USD order server-side; Stripe records are written
  * only to the Central Supabase payment tables.
  */
 export async function createJabiyenOrderCheckoutSession(input: {
@@ -455,21 +449,19 @@ export async function createJabiyenOrderCheckoutSession(input: {
     throw new PaymentServiceError("ORDER_NOT_PAYABLE", 404, "The order is not available for payment.");
   }
 
-  const [{ data: checkout, error: checkoutError }, { data: payment, error: paymentError }, { data: items, error: itemsError }, { data: usdRate, error: rateError }] = await Promise.all([
+  const [{ data: checkout, error: checkoutError }, { data: payment, error: paymentError }, { data: items, error: itemsError }] = await Promise.all([
     jabiDb.from("checkout_sessions").select("id,idempotency_key,customer_email,currency,subtotal,delivery_fee,total_amount,delivery_fee_status,status").eq("id", order.checkout_id).maybeSingle(),
     jabiDb.from("order_payments").select("method,status,currency,amount_due").eq("order_id", order.id).maybeSingle(),
     jabiDb.from("order_items").select("product_name,variant_name,quantity,unit_price,line_total").eq("order_id", order.id).limit(20),
-    jabiDb.from("currency_rates").select("exchange_rate,is_active,updated_at").eq("currency_code", "USD").eq("is_active", true).maybeSingle(),
   ]);
   if (checkoutError) safeDatabaseError(checkoutError, "JABIYEN_CHECKOUT_LOOKUP");
   if (paymentError) safeDatabaseError(paymentError, "JABIYEN_PAYMENT_LOOKUP");
   if (itemsError) safeDatabaseError(itemsError, "JABIYEN_ITEMS_LOOKUP");
-  if (rateError) safeDatabaseError(rateError, "JABIYEN_RATE_LOOKUP");
   if (!checkout || !payment || !Array.isArray(items) || items.length < 1
       || checkout.customer_email?.trim().toLowerCase() !== email
-      || checkout.currency !== "BDT" || checkout.status !== "converted"
+      || checkout.currency !== "USD" || checkout.status !== "converted"
       || checkout.delivery_fee_status !== "confirmed"
-      || payment.method !== "cod" || payment.status !== "awaiting_collection" || payment.currency !== "BDT") {
+      || payment.method !== "cod" || payment.status !== "awaiting_collection" || payment.currency !== "USD") {
     throw new PaymentServiceError("ORDER_NOT_PAYABLE", 404, "The order is not available for payment.");
   }
 
@@ -501,17 +493,11 @@ export async function createJabiyenOrderCheckoutSession(input: {
     throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The saved order items do not match the order total.");
   }
 
-  const rateMicros = parseRateMicros(usdRate?.exchange_rate);
-  if (!usdRate?.is_active || rateMicros == null || rateMicros <= 0n || rateMicros > 1_000_000n) {
-    throw new PaymentServiceError("USD_RATE_UNAVAILABLE", 503, "The USD conversion rate is not configured safely.");
+  if (totalMinor < 1n || totalMinor > 999_999_999_999n) {
+    throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The USD order total is outside the supported range.");
   }
-  const usdMinorBigInt = (totalMinor * rateMicros + 500_000n) / 1_000_000n;
-  if (usdMinorBigInt < 1n || usdMinorBigInt > 999_999_999_999n) {
-    throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The converted order total is outside the supported range.");
-  }
-  const usdMinor = Number(usdMinorBigInt);
-  const rateText = `${rateMicros / 1_000_000n}.${String(rateMicros % 1_000_000n).padStart(6, "0")}`;
-  const description = `Original total BDT ${formatMinorUnits(totalMinor)} (items ${formatMinorUnits(subtotalMinor)}, delivery ${formatMinorUnits(deliveryMinor)}); USD/BDT rate ${rateText}; ${itemNames.join(", ")}`.slice(0, 500);
+  const usdMinor = Number(totalMinor);
+  const description = `JABIYEN USD total ${formatMinorUnits(totalMinor)} (items ${formatMinorUnits(subtotalMinor)}, delivery ${formatMinorUnits(deliveryMinor)}); ${itemNames.join(", ")}`.slice(0, 500);
 
   const paymentRequest = await createPaymentRequest({
     project_key: "jabiyen",
