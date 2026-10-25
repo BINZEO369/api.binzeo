@@ -6,39 +6,22 @@ type EmailOrderItem = {
   color_name?: string | null;
   size_name?: string | null;
   quantity?: number | null;
-  unit_price?: string | number | null;
-  line_total?: string | number | null;
 };
 
 type JabiyenOrderSnapshot = {
   order_number: string;
-  created_at?: string | null;
   customer?: { name?: string | null; email?: string | null; phone?: string | null } | null;
   shipping_address?: Record<string, unknown> | null;
-  subtotal?: string | number | null;
-  delivery_fee?: string | number | null;
-  total_amount?: string | number | null;
-  delivery_type?: string | null;
   estimated_days_min?: number | null;
   estimated_days_max?: number | null;
-  currency?: string | null;
   items?: EmailOrderItem[] | null;
 };
 
-function formatDecimalAmount(value: string | number | null | undefined, currency: string) {
-  if (value == null || value === "") return "To be confirmed";
-  const match = String(value).trim().match(/^(\d{1,10})(?:\.(\d{1,2}))?$/);
-  if (!match) return "To be confirmed";
-  const major = new Intl.NumberFormat("en-US").format(Number(match[1]));
-  const minor = (match[2] ?? "").padEnd(2, "0");
-  return `${currency.toUpperCase()} ${major}.${minor}`;
-}
-
-function formatMinorAmount(value: number | undefined, currency: string) {
-  if (!Number.isSafeInteger(value) || value == null || value <= 0) return "Payment confirmed";
+function formatUsdMinorAmount(value: number) {
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error("Invalid USD amount for order confirmation");
   const minor = BigInt(value);
   const majorText = new Intl.NumberFormat("en-US").format(Number(minor / 100n));
-  return `${currency.toUpperCase()} ${majorText}.${String(minor % 100n).padStart(2, "0")}`;
+  return `USD ${majorText}.${String(minor % 100n).padStart(2, "0")}`;
 }
 
 function safeJabiyenUrl() {
@@ -71,14 +54,12 @@ export function buildJabiyenOrderConfirmationEmail({
   siteUrl,
   order,
   paymentMethod,
-  stripeAmountMinor,
-  stripeCurrency,
+  orderAmountUsdMinor,
 }: {
   siteUrl: string;
   order: JabiyenOrderSnapshot;
   paymentMethod: "cod" | "stripe";
-  stripeAmountMinor?: number;
-  stripeCurrency?: string;
+  orderAmountUsdMinor: number;
 }) {
   if (!/^JBY-\d{6}-[A-F0-9]{8}$/.test(order.order_number)) {
     throw new Error("Invalid JABIYEN order number for email template");
@@ -92,21 +73,14 @@ export function buildJabiyenOrderConfirmationEmail({
       .map((value) => escapeEmailText(value.trim()))
       .join(" · ") || "JABIYEN item";
     const quantity = Number.isInteger(item.quantity) && Number(item.quantity) > 0 ? Number(item.quantity) : 1;
-    return `<tr><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.22);color:#ffffff;font-size:12px;line-height:1.5;">${name}<br /><span style="font-size:11px;opacity:.82;">Qty ${quantity} · ${formatDecimalAmount(item.unit_price, "BDT")} each</span></td><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.22);color:#ffffff;font-size:12px;line-height:1.5;text-align:right;vertical-align:top;">${formatDecimalAmount(item.line_total, "BDT")}</td></tr>`;
+    return `<tr><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.22);color:#ffffff;font-size:12px;line-height:1.5;">${name}<br /><span style="font-size:11px;opacity:.82;">Qty ${quantity}</span></td></tr>`;
   }).join("");
 
-  const totalBdt = formatDecimalAmount(order.total_amount, "BDT");
-  const paymentDetails = paymentMethod === "cod"
-    ? `Cash on Delivery · Due on delivery: ${totalBdt}`
-    : `Stripe · Paid ${formatMinorAmount(stripeAmountMinor, stripeCurrency || "USD")}`;
-  const paymentRow = `<tr><td style="padding:12px 0 8px;color:#ffffff;font-size:12px;line-height:1.55;font-weight:700;vertical-align:top;">Payment</td><td style="padding:12px 0 8px;color:#ffffff;font-size:12px;line-height:1.55;text-align:right;vertical-align:top;">${escapeEmailText(paymentDetails)}</td></tr>`;
-  const stripeOriginalRow = paymentMethod === "stripe"
-    ? detailRow("JABIYEN order total", totalBdt)
+  const amount = formatUsdMinorAmount(orderAmountUsdMinor);
+  const paymentMethodLabel = paymentMethod === "cod" ? "Cash on Delivery" : "Stripe · Paid";
+  const codNote = paymentMethod === "cod"
+    ? `<p style="margin:0 0 18px;color:#ffffff;font-size:11px;line-height:1.6;opacity:.9;">The USD amount is an estimated equivalent for reference. Cash on Delivery is collected at delivery in the store's local currency.</p>`
     : "";
-  const delivery = order.delivery_fee == null
-    ? "To be confirmed"
-    : formatDecimalAmount(order.delivery_fee, "BDT");
-  const total = totalBdt;
   const estimatedDelivery = Number.isInteger(order.estimated_days_min) && Number.isInteger(order.estimated_days_max)
     ? `${order.estimated_days_min}–${order.estimated_days_max} days`
     : "As advised by the store";
@@ -119,14 +93,12 @@ export function buildJabiyenOrderConfirmationEmail({
     </div>
     <div style="margin:0 0 8px;color:#ffffff;font-size:10px;line-height:1.5;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">Order items</div>
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 18px;">${itemRows || `<tr><td style="padding:10px 0;color:#ffffff;font-size:12px;">Order items</td></tr>`}</table>
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 22px;">
-      ${detailRow("Subtotal", formatDecimalAmount(order.subtotal, "BDT"))}
-      ${detailRow("Delivery", delivery)}
-      ${stripeOriginalRow}
-      ${detailRow("Total", total, true)}
-      ${paymentRow}
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 18px;">
+      ${detailRow("Order total (USD)", amount, true)}
+      ${detailRow("Payment method", paymentMethodLabel)}
       ${detailRow("Estimated delivery", escapeEmailText(estimatedDelivery))}
     </table>
+    ${codNote}
     <div style="margin:0 0 22px;">
       <div style="margin-bottom:5px;color:#ffffff;font-size:10px;line-height:1.5;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">Delivering to</div>
       <div style="color:#ffffff;font-size:12px;line-height:1.65;">${escapeEmailText(addressText(order.shipping_address))}</div>
