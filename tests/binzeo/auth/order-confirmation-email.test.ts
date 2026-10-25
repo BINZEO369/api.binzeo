@@ -3,6 +3,7 @@ import { buildJabiyenOrderConfirmationEmail } from "@/binzeo/auth/lib/email/orde
 
 const sampleOrder = {
   order_number: "JBY-261024-ABC12345",
+  total_amount: "1080.00",
   customer: { name: "Amina <script>alert(1)</script>", email: "amina@example.test", phone: "+8801712345678" },
   shipping_address: { line1: "12 Main Road", city: "Dhaka", district: "Dhaka", country_code: "BD" },
   estimated_days_min: 2,
@@ -11,23 +12,23 @@ const sampleOrder = {
 };
 
 describe("JABIYEN transactional order confirmation email", () => {
-  it("uses the shared BINZEO Welcome shell and displays the COD order's USD equivalent only", () => {
+  it("uses the shared BINZEO Welcome shell and displays the COD website total directly as USD", () => {
     const email = buildJabiyenOrderConfirmationEmail({
       siteUrl: "https://auth-binzeo.vercel.app",
       order: sampleOrder,
       paymentMethod: "cod",
-      orderAmountUsdMinor: 896,
+      orderAmountUsdMinor: 108000,
     });
 
     expect(email.subject).toContain("JABIYEN JBY-261024-ABC12345");
     expect(email.html).toContain("/email-logo-white.png");
     expect(email.html).toContain("JABIYEN order confirmation");
-    expect(email.html).toContain("USD 8.96");
+    expect(email.html).toContain("USD 1,080.00");
     expect(email.html).toContain("Cash on Delivery");
-    expect(email.html).toContain("USD amount is an estimated equivalent");
+    expect(email.html).not.toContain("estimated equivalent");
+    expect(email.html).not.toContain("collected at delivery in the store's local currency");
     expect(email.html).toContain("Qty 2");
     expect(email.html).not.toContain("BDT");
-    expect(email.html).not.toContain("1,080.00");
     expect(email.html).toContain("Visit JABIYEN");
     expect(email.html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     expect(email.html).not.toContain("<script>alert(1)</script>");
@@ -52,7 +53,7 @@ describe("JABIYEN transactional order confirmation email", () => {
       siteUrl: "https://auth-binzeo.vercel.app",
       order: { ...sampleOrder, order_number: "<img src=x onerror=alert(1)>" },
       paymentMethod: "cod",
-      orderAmountUsdMinor: 896,
+      orderAmountUsdMinor: 108000,
     })).toThrow("Invalid JABIYEN order number");
   });
 });
