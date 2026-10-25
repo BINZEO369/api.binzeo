@@ -4,6 +4,13 @@ import express from "express";
 import { supabase, adminAuth, superAdminAuth } from "./admin-context";
 const router = express.Router();
 
+const isNonNegativeNumber = (value: unknown) => {
+    const number = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(number) && number >= 0;
+};
+
+const isPositiveInteger = (value: unknown) => Number.isInteger(Number(value)) && Number(value) > 0;
+
 router.get('/api/admin/products/:productId/colors', adminAuth, async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -570,11 +577,21 @@ router.post('/api/admin/product-variants', adminAuth, async (req, res) => {
             weight
         } = req.body;
 
-        if (!product_id || !color_id || !size_id || price === undefined) {
+        if (!isPositiveInteger(product_id) || !isPositiveInteger(color_id) || !isPositiveInteger(size_id) || !isNonNegativeNumber(price)) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Product ID, color ID, size ID and price are required' 
+                error: 'Valid product, color, size and non-negative price are required'
             });
+        }
+
+        if (old_price !== undefined && old_price !== null && !isNonNegativeNumber(old_price)) {
+            return res.status(400).json({ success: false, error: 'Old price must be a non-negative number' });
+        }
+        if (stock !== undefined && !isNonNegativeNumber(stock)) {
+            return res.status(400).json({ success: false, error: 'Stock must be a non-negative number' });
+        }
+        if (weight !== undefined && !isNonNegativeNumber(weight)) {
+            return res.status(400).json({ success: false, error: 'Weight must be a non-negative number' });
         }
 
         // Check if product exists
@@ -907,6 +924,58 @@ router.put('/api/admin/product-variants/:id', adminAuth, async (req, res) => {
             material,
             weight
         } = req.body;
+
+        if (!isPositiveInteger(req.params.id)) {
+            return res.status(400).json({ success: false, error: 'A valid variant ID is required' });
+        }
+
+        const { data: current, error: currentError } = await supabase
+            .from('product_variants')
+            .select('id, product_id, color_id, size_id')
+            .eq('id', req.params.id)
+            .single();
+
+        if (currentError || !current) {
+            return res.status(404).json({ success: false, error: 'Variant not found' });
+        }
+
+        const nextColorId = color_id === undefined ? current.color_id : color_id;
+        const nextSizeId = size_id === undefined ? current.size_id : size_id;
+        if (!isPositiveInteger(nextColorId) || !isPositiveInteger(nextSizeId)) {
+            return res.status(400).json({ success: false, error: 'A valid color and size are required' });
+        }
+        if (price !== undefined && !isNonNegativeNumber(price)) {
+            return res.status(400).json({ success: false, error: 'Price must be a non-negative number' });
+        }
+        if (old_price !== undefined && old_price !== null && !isNonNegativeNumber(old_price)) {
+            return res.status(400).json({ success: false, error: 'Old price must be a non-negative number' });
+        }
+        if (stock !== undefined && !isNonNegativeNumber(stock)) {
+            return res.status(400).json({ success: false, error: 'Stock must be a non-negative number' });
+        }
+        if (weight !== undefined && !isNonNegativeNumber(weight)) {
+            return res.status(400).json({ success: false, error: 'Weight must be a non-negative number' });
+        }
+
+        const { data: color, error: colorError } = await supabase
+            .from('product_colors')
+            .select('id')
+            .eq('id', nextColorId)
+            .eq('product_id', current.product_id)
+            .single();
+        if (colorError || !color) {
+            return res.status(400).json({ success: false, error: 'Color not found or does not belong to this product' });
+        }
+
+        const { data: size, error: sizeError } = await supabase
+            .from('color_sizes')
+            .select('id')
+            .eq('id', nextSizeId)
+            .eq('color_id', nextColorId)
+            .single();
+        if (sizeError || !size) {
+            return res.status(400).json({ success: false, error: 'Size not found or does not belong to this color' });
+        }
 
         const updates = {};
         if (color_id !== undefined) updates.color_id = color_id;
