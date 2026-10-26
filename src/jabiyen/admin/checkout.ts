@@ -162,6 +162,13 @@ router.post("/api/orders", async (req, res) => {
     });
     if (error) {
       console.error("[JABIYEN_COD_ORDER_CREATE]", error.code || "DB_ERROR");
+      if (error.code === "P0001" && /variant|stock|quantity/i.test(error.message || "")) {
+        return res.status(409).json({
+          success: false,
+          code: "OUT_OF_STOCK",
+          error: "The selected size or colour is no longer available. Please review your cart and try again.",
+        });
+      }
       return res.status(503).json({ success: false, error: "We could not save your order just now. Please retry or contact the store." });
     }
     if (!data?.ok) return res.status(errorStatus(data?.code || "UNKNOWN")).json({ success: false, code: data?.code || "ORDER_FAILED", error: data?.message || "We could not complete this order." });
