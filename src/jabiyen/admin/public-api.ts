@@ -6,6 +6,7 @@ import checkout from "./checkout";
 import navigation from "./navigation";
 import content from "./content";
 import footerHome from "./footer-home";
+import paymentHandoff from "./payment-handoff";
 
 const app = express();
 app.use((req, _res, next) => {
@@ -13,6 +14,7 @@ app.use((req, _res, next) => {
   if (req.url.startsWith(prefix)) req.url = "/api" + req.url.slice(prefix.length);
   next();
 });
+app.use(paymentHandoff);
 app.use(checkout);
 app.use(publicCatalog);
 app.use(catalog);

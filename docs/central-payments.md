@@ -2,43 +2,47 @@
 
 ## Customer flow and ownership
 
-The customer chooses COD or online Stripe in JABIYEN's Payment step. For Stripe, JABIYEN submits its normal order request and then only redirects the browser to `https://auth-binzeo.vercel.app/payment?order_number=...`; it does not create a Stripe session or store card/payment state. The customer signs in to Central Auth, reviews the order number on the Auth payment page, and clicks **Pay securely with Stripe**. Auth sends only the order number and the Central Auth session to `api.binzeo`; the central server verifies the order and creates a hosted Stripe Checkout Session. Stripe card entry happens on Stripe's domain.
+The customer selects Cash on Delivery or Stripe during JABIYEN checkout. For Stripe, JABIYEN submits the order through its server API and redirects the customer to the central BINZEO Auth payment page. JABIYEN never creates a Stripe Checkout Session or trusts browser-supplied prices. The central server reads the saved order and account identity, checks that the order belongs to the signed-in customer, and creates a hosted Stripe Checkout Session. Card entry remains on Stripe's domain.
 
-All payment configuration, requests, attempts, Stripe Customer mappings, and webhook inbox records are stored in the central Auth Supabase database. JABIYEN's separate database remains the source of its order, item, shipping-fee, and admin-managed currency-rate data; the central adapter reads those values server-side and never writes Stripe payment state to JABIYEN.
+The signed Stripe webhook is the source of payment truth. After it verifies the Checkout Session against the immutable central request (request ID, account, site, amount, currency and Stripe metadata), the central server calls a service-role-only, idempotent JABIYEN database function. That transaction changes the JABIYEN order/payment records to confirmed/collected. This fulfillment continues even if the customer's browser closes. Confirmation emails are sent only after this server-side order update succeeds.
 
-The central payment provider is configured for the user-selected United States / USD setup and is currently in shared `test` mode in the central database; all sites use this mode. The connected Stripe MCP account is a test sandbox, not the user's live merchant account. Test checkout requires a test `sk_test_...` key and test webhook signing secret in the `api-binzeo` Vercel Production environment. Real charges remain blocked by `STRIPE_LIVE_CHARGES_ENABLED=false`; before live use, switch the central provider mode to `live`, set the live key and webhook secret, and intentionally change the gate.
+After Central Auth sees both `payment_requests.status = 'paid'` and `fulfillment_status = 'fulfilled'`, it can issue a short-lived one-time return link. The raw random token is returned only to the authenticated customer, stored in the central database as a SHA-256 hash, and placed in the URL fragment (not sent in HTTP requests or Referer headers). JABIYEN immediately removes the fragment from browser history and redeems the token through a same-origin API request. Central redemption atomically consumes the token and returns only the confirmed order whose email, order number, Stripe status and exact USD total still match. Expired or replayed tokens are rejected; customers can request a fresh token from Auth.
 
-Order confirmations use the existing central BINZEO SMTP transport and the shared Welcome-email layout. COD confirmations are sent after the JABIYEN order has been saved. Stripe confirmations are sent only after the signed webhook verifies the payment as paid; a browser return is never used as proof. The central `order_confirmation_email_deliveries` ledger deduplicates confirmations and records delivery attempts. If SMTP temporarily fails, COD order creation remains successful and the delivery is recorded for retry; Stripe webhook failures return a retryable response to Stripe.
+All new central payment requests and Stripe charges use USD. JABIYEN product, shipping and saved order totals are treated as USD amounts without exchange-rate conversion. The central payment record is denominated in USD cents. The JABIYEN Stripe fulfillment RPC also compares the saved USD total against the immutable central amount before it confirms the order. Historical legacy currency labels remain tolerated only to preserve existing rows; new orders and Stripe-settled rows are stored as USD.
 
-Order confirmation emails display money in USD only. Stripe emails show the verified USD amount actually charged. COD emails display the saved JABIYEN order total directly as USD, without an exchange-rate conversion or a local-currency disclaimer.
+All central payment configuration, requests, attempts, Stripe Customer mappings, webhook inbox records, fulfillment state and handoff hashes are stored in the central Auth Supabase database. JABIYEN's database remains the order source of truth and is updated only by the central service-role RPC after verified Stripe success. No card data is stored.
+
+The central provider is configured for the user-selected United States / USD setup and shared `test` mode; all sites use the same mode. Real charges remain blocked by `STRIPE_LIVE_CHARGES_ENABLED=false`. Before live use, switch the central provider mode to `live`, configure the matching live Stripe key and webhook signing secret, and intentionally enable the gate.
 
 ## Server-side trust and amount rules
 
-The Auth payment page is protected by Central Auth. The central API accepts the Auth app's signed session only from the configured `AUTH_APP_URL` origin (or an authenticated Central Auth bearer token for server integrations). It derives the user ID, verified email, and profile name from Central Auth; the browser cannot submit a price, currency, customer identity, Stripe ID, or return URL.
+The central payment page derives the customer ID, verified email and profile name from Central Auth. Browser requests cannot set the amount, currency, owner, Stripe identifiers or return URL. For JABIYEN, the central adapter loads the saved order, matches its email to the verified Central Auth email, rejects cancelled/returned or already-collected orders, requires confirmed shipping, and validates stored item prices, line totals, subtotal, delivery fee and total using exact decimal-to-cent arithmetic. It then saves an immutable USD amount and line-item snapshot in the central database. There is no exchange-rate lookup or conversion.
 
-For JABIYEN, the central adapter loads the order by order number, matches the order email to the signed-in account's verified email, rejects cancelled/returned or already-collected orders, requires confirmed delivery fees, and checks stored item line totals, subtotal, shipping, and total arithmetically. It converts the finalized BDT total to USD using the active JABIYEN USD rate and saves an immutable USD amount and order snapshot in the central payment tables. If any input is missing, inconsistent, unpaid status is not clear, or the rate is unavailable, checkout fails closed.
-
-The payment service uses the verified Central Auth email and profile name to create/reuse a Stripe Customer. It does not store card data or set up reusable payment methods. Only a verified Stripe webhook can mark a request paid; a return redirect is not proof of payment.
+A browser redirect, query string or client-side success state never marks a payment paid. Only a signed Stripe webhook can do so. Before JABIYEN is fulfilled, the server additionally verifies the exact central amount against the still-saved JABIYEN order total. A mismatched amount or payment proof fails closed and is recorded as a failed webhook event for investigation; no manual database toggle may be used to mark it paid.
 
 ## API contract
 
-- `POST /v1/payments/jabiyen/checkout-sessions` — Authenticated by the Central Auth session or bearer identity. Accepts only `{ "order_number": "..." }`; returns a Stripe-hosted Checkout URL after the central adapter verifies the order.
-- `POST /v1/payments/checkout-sessions` — Trusted server-side integrations using an already-created central payment request; accepts only its request ID and idempotency key.
-- `GET /v1/payments/requests/{requestId}` — Authenticated, owner-scoped payment status.
-- `POST /v1/payments/stripe/webhook` — Stripe signature-authenticated endpoint; verifies the unmodified raw body using `STRIPE_WEBHOOK_SECRET`.
-- `GET /api/admin/payments` — Admin-only, paginated payment history across registered sites; requires `super_admin` or the dedicated `payments.read` permission. The existing admin dashboard page is `https://admin-binzeo.vercel.app/dashboard/payments`.
+- `POST /v1/payments/jabiyen/checkout-sessions` — Authenticated order-number-only checkout request; central server verifies the order and computes the USD amount.
+- `POST /v1/payments/checkout-sessions` — Trusted integrations using an existing immutable central payment request; accepts only its request ID and idempotency key.
+- `GET /v1/payments/requests/{requestId}` — Authenticated, owner-scoped payment and fulfillment status.
+- `POST /v1/payments/requests/{requestId}/return-handoff` — Authenticated owner-only token issuance, available only after payment and JABIYEN fulfillment are verified.
+- `POST /v1/projects/jabiyen/public/payment-handoff` — Same-origin public redemption endpoint; rate-limited, token-hash lookup and atomic single-use consumption.
+- `POST /v1/payments/stripe/webhook` — Stripe-signature authenticated endpoint that verifies the original raw body.
+- `GET /api/admin/payments` — Admin-only, paginated multi-site payment history; requires `super_admin` or `payments.read`.
 
-The central API constructs success/cancel return URLs from `payment_site_settings` and registered `platform_projects.allowed_origins`; neither is accepted from the browser. Stripe Checkout is hosted at `checkout.stripe.com`.
+Checkout success/cancel destinations and the JABIYEN order-return destination are configured in central `payment_site_settings` and constrained by each project's registered origin allowlist. The Auth frontend does not embed a fixed JABIYEN return URL.
+
+## Failure handling and manual reconciliation
+
+Webhook processing uses an idempotent inbox with event ID, retry count, lease, processed/failed status and a stable `last_error_code`. Transient failures (including JABIYEN database or SMTP outages) return a retryable error; Stripe can redeliver the event, and each fulfillment/email operation is idempotent. The admin's central payment history plus the central webhook inbox should be used to locate the affected payment request and error code.
+
+For an operational retry, verify that the central webhook endpoint is healthy and resend the original Stripe event from the matching test/live Stripe Dashboard. The handler repeats signature, session metadata, owner, project, USD amount and currency verification before any state change. If the event reports an amount/proof mismatch, do not mark the request paid or edit its immutable amount. Compare the Stripe Checkout Session and the central request; if Stripe actually captured a discrepant amount, resolve or refund it in Stripe and record the incident. A failed or unconfirmed transaction must remain unpaid until Stripe's verified data matches the saved order.
 
 ## Central database tables
 
-`payment_provider_settings` stores only non-secret global mode, enablement, merchant country, and default currency. `payment_site_settings` controls per-site enablement, currency, and safe relative return paths. `payment_requests` stores owner, site/order reference, final amount in Stripe minor units, currency, and immutable line-item snapshot. `payment_attempts` stores Checkout Session IDs and statuses. `payment_customers` maps Central Auth users to Stripe Customer IDs and account email/name snapshots. `payment_webhook_events` is an idempotent Stripe webhook inbox; raw payloads and card data are not stored.
+`payment_provider_settings` stores non-secret mode and merchant eligibility settings. `payment_site_settings` controls site enablement, USD currency, checkout paths and the configured order-return destination. `payment_requests` stores the owner, site/order reference, immutable final amount in USD minor units, item snapshot and fulfillment state. `payment_attempts` stores Checkout Session IDs and statuses. `payment_customers` maps Central Auth users to Stripe Customer IDs without saving card details. `payment_webhook_events` is the idempotent Stripe event inbox. `payment_return_handoffs` stores only hashed, expiring, single-use return capabilities.
 
-`order_confirmation_email_deliveries` is a service-role-only central ledger that deduplicates JABIYEN order confirmations and records SMTP delivery attempts. It stores delivery status and the recipient address, but never stores card data or SMTP credentials.
-
-The admin history is a read-only joined view of these normalized central records, not a second copy of payment data. It identifies each row by website/project ID and key, Central Auth UUID and BINZEO user ID, external order ID, and central payment-request ID; it shows the charged amount/currency, status, created time, and webhook-confirmed paid time. User name/email are taken from the central payment customer snapshot when present. Card numbers and payment credentials are never exposed. Site and status filters plus bounded pagination are supported.
-
-All payment tables have RLS enabled and are restricted to the central server's `service_role`. Stripe secret values are never stored in the database, registry, API responses, or logs.
+`order_confirmation_email_deliveries` is a service-role-only central ledger that deduplicates JABIYEN order confirmation messages and records delivery attempts. The admin history remains a read-only joined view of normalized central records, including site, account, external order reference, amount/currency, payment status and timestamps; it never exposes card data.
 
 ## Production configuration
 
@@ -46,17 +50,14 @@ Set these only in the **`api-binzeo` Vercel project → Production** environment
 
 | Variable | Value / use |
 | --- | --- |
-| `STRIPE_SECRET_KEY` | The real merchant account's live secret, beginning `sk_live_`. Never use a publishable key. |
-| `STRIPE_WEBHOOK_SECRET` | The signing secret beginning `whsec_` for the live webhook endpoint below. |
-| `STRIPE_LIVE_CHARGES_ENABLED` | Leave `false` until the live key and webhook are verified; change to `true` only to intentionally allow real charges. It is currently set to `false`. |
+| `STRIPE_SECRET_KEY` | The merchant account secret matching the selected mode (`sk_test_...` or `sk_live_...`). Never use a publishable key. |
+| `STRIPE_WEBHOOK_SECRET` | The `whsec_...` signing secret for the matching mode's webhook endpoint. |
+| `STRIPE_LIVE_CHARGES_ENABLED` | Keep `false` until live mode is intentionally approved; it must be explicitly set to `true` before real charges are allowed. |
 
-Register this URL in the Stripe Dashboard's **live mode**: `https://api-binzeo.vercel.app/v1/payments/stripe/webhook`. Copy its signing secret to `STRIPE_WEBHOOK_SECRET`. The central API's JABIYEN service-role database variables (`JABIYEN_SUPABASE_URL`, `JABIYEN_SUPABASE_SERVICE_ROLE_KEY`) and Auth integration settings must also be correctly populated; their names already exist in the `api-binzeo` Vercel configuration, but secret values were not read. In the `auth-binzeo` project, production `CENTRAL_API_ENABLED=true` and `CENTRAL_API_BASE_URL=https://api-binzeo.vercel.app` are already configured.
+The central API also needs its existing central and JABIYEN Supabase service-role configuration. Secret values must remain in the encrypted deployment environment and must never be pasted into chat or committed.
 
-A live key alone cannot enable checkout: provider mode, key prefix, webhook secret, and the explicit live-charge gate must all match. Do not paste secrets in chat or commit them to a repository. Use Vercel's encrypted Production environment-variable UI.
+## Migrations and release checks
 
-## Migrations and extension
+Apply `supabase/migrations/20261025110000_secure_payment_fulfillment_handoffs.sql` only to the central Auth Supabase project. Apply `supabase/jabiyen/migrations/20261025110000_confirm_stripe_orders_from_central_webhook.sql` only to the JABIYEN Supabase project. The JABIYEN migration enables Stripe state transitions, preserves legacy currency rows while making new/settled rows USD, and installs the central-only fulfillment RPC. Do not deploy the code before both migrations are applied and the central `payment_site_settings.order_return_origin` is present in the JABIYEN project origin allowlist.
 
-- `supabase/migrations/20261023192000_central_stripe_payments.sql` creates the central payment schema and has been applied to the central Supabase project.
-- `supabase/migrations/20261023195700_enable_jabiyen_central_checkout.sql` registers the Auth origin and configures the central provider/site for US/USD; the explicit Vercel live gate remains false.
-
-Apply both only to the central Auth Supabase project, never to the JABIYEN project. Future sites should add a small central server-side order adapter, a central project origin, and central site settings; their websites should link customers to the same Auth payment page rather than implement their own Stripe flows. Refund/dispute workflows and saved payment methods are outside this rollout.
+Before enabling customer checkout, run API security/regression tests and all three repositories' typechecks/builds. Verify the full test-mode flow: a matching signed webhook updates the central request, JABIYEN order/payment, email ledger and fulfillment status; the Auth button then creates a return token; the JABIYEN page redeems it once; a second redemption and an altered amount are rejected. The central live-charge gate must remain off unless live configuration has been separately confirmed.

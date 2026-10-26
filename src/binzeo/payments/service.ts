@@ -5,6 +5,7 @@ import type { CentralIdentity } from "@/binzeo/auth/identity";
 import { createPrivilegedClient } from "@/common/database/supabase/clients";
 import { getJabiyenAdminDatabase } from "@/jabiyen/website/database";
 import { sendPaidJabiyenStripeOrderConfirmationEmailOnce } from "@/binzeo/payments/order-confirmation-email";
+import { buildPaymentReturnUrl, checkoutSessionMatchesAttempt, createPaymentReturnToken, hashPaymentReturnToken, usdMajorToMinorUnits, verifiedCheckoutEventStatus } from "@/binzeo/payments/security";
 
 export class PaymentServiceError extends Error {
   constructor(
@@ -88,6 +89,7 @@ export async function createPaymentRequest(input: unknown, identity: CentralIden
   const parsed = requestInputSchema.safeParse(input);
   if (!parsed.success) throw new PaymentServiceError("INVALID_PAYMENT_ORDER", 400, "The payment order is invalid.");
   const order = parsed.data;
+  if (order.currency !== "usd") throw new PaymentServiceError("CURRENCY_NOT_ALLOWED", 400, "All central payments must be charged in USD.");
   if (!identity.user.email || !identity.user.email_confirmed_at) {
     throw new PaymentServiceError("VERIFIED_EMAIL_REQUIRED", 403, "A verified account email is required for checkout.");
   }
@@ -138,10 +140,11 @@ export async function createPaymentRequest(input: unknown, identity: CentralIden
     currency: order.currency,
     line_items: order.line_items,
     status: "pending",
-  }).select("id,project_id,user_id,external_order_reference,amount_minor,currency,line_items,status,expires_at").single();
+    fulfillment_status: order.project_key === "jabiyen" ? "pending" : "not_required",
+  }).select("id,project_id,user_id,external_order_reference,amount_minor,currency,line_items,status,fulfillment_status,expires_at").single();
 
   if (error?.code === "23505") {
-    const { data: existing, error: lookupError } = await db.from("payment_requests").select("id,project_id,user_id,external_order_reference,idempotency_key,amount_minor,currency,line_items,status,expires_at").eq("project_id", project.id).eq("external_order_reference", order.external_order_reference).maybeSingle();
+    const { data: existing, error: lookupError } = await db.from("payment_requests").select("id,project_id,user_id,external_order_reference,idempotency_key,amount_minor,currency,line_items,status,fulfillment_status,expires_at").eq("project_id", project.id).eq("external_order_reference", order.external_order_reference).maybeSingle();
     if (lookupError) safeDatabaseError(lookupError, "IDEMPOTENCY_LOOKUP");
     if (existing && isSameOrder(existing, order, identity.user.id)) return existing;
     throw new PaymentServiceError("PAYMENT_ORDER_CONFLICT", 409, "A different payment request already exists for this order.");
@@ -416,16 +419,6 @@ function parseMinorUnits(value: unknown): bigint | null {
   return BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
 }
 
-function parseRateMicros(value: unknown): bigint | null {
-  const match = String(value ?? "").trim().match(/^(\d{1,3})(?:\.(\d{1,6}))?$/);
-  if (!match) return null;
-  return BigInt(match[1]) * 1_000_000n + BigInt((match[2] ?? "").padEnd(6, "0"));
-}
-
-function formatMinorUnits(value: bigint): string {
-  return `${value / 100n}.${String(value % 100n).padStart(2, "0")}`;
-}
-
 /**
  * The Auth payment page submits only an order number. This adapter reads the
  * authoritative JABIYEN order and rate server-side; Stripe records are written
@@ -455,21 +448,19 @@ export async function createJabiyenOrderCheckoutSession(input: {
     throw new PaymentServiceError("ORDER_NOT_PAYABLE", 404, "The order is not available for payment.");
   }
 
-  const [{ data: checkout, error: checkoutError }, { data: payment, error: paymentError }, { data: items, error: itemsError }, { data: usdRate, error: rateError }] = await Promise.all([
+  const [{ data: checkout, error: checkoutError }, { data: payment, error: paymentError }, { data: items, error: itemsError }] = await Promise.all([
     jabiDb.from("checkout_sessions").select("id,idempotency_key,customer_email,currency,subtotal,delivery_fee,total_amount,delivery_fee_status,status").eq("id", order.checkout_id).maybeSingle(),
     jabiDb.from("order_payments").select("method,status,currency,amount_due").eq("order_id", order.id).maybeSingle(),
     jabiDb.from("order_items").select("product_name,variant_name,quantity,unit_price,line_total").eq("order_id", order.id).limit(20),
-    jabiDb.from("currency_rates").select("exchange_rate,is_active,updated_at").eq("currency_code", "USD").eq("is_active", true).maybeSingle(),
   ]);
   if (checkoutError) safeDatabaseError(checkoutError, "JABIYEN_CHECKOUT_LOOKUP");
   if (paymentError) safeDatabaseError(paymentError, "JABIYEN_PAYMENT_LOOKUP");
   if (itemsError) safeDatabaseError(itemsError, "JABIYEN_ITEMS_LOOKUP");
-  if (rateError) safeDatabaseError(rateError, "JABIYEN_RATE_LOOKUP");
   if (!checkout || !payment || !Array.isArray(items) || items.length < 1
       || checkout.customer_email?.trim().toLowerCase() !== email
-      || checkout.currency !== "BDT" || checkout.status !== "converted"
+      || checkout.status !== "converted"
       || checkout.delivery_fee_status !== "confirmed"
-      || payment.method !== "cod" || payment.status !== "awaiting_collection" || payment.currency !== "BDT") {
+      || payment.method !== "cod" || payment.status !== "awaiting_collection") {
     throw new PaymentServiceError("ORDER_NOT_PAYABLE", 404, "The order is not available for payment.");
   }
 
@@ -501,17 +492,14 @@ export async function createJabiyenOrderCheckoutSession(input: {
     throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The saved order items do not match the order total.");
   }
 
-  const rateMicros = parseRateMicros(usdRate?.exchange_rate);
-  if (!usdRate?.is_active || rateMicros == null || rateMicros <= 0n || rateMicros > 1_000_000n) {
-    throw new PaymentServiceError("USD_RATE_UNAVAILABLE", 503, "The USD conversion rate is not configured safely.");
-  }
-  const usdMinorBigInt = (totalMinor * rateMicros + 500_000n) / 1_000_000n;
+  // JABIYEN's saved numeric totals are denominated in USD by business rule.
+  // Do not apply a local-currency or exchange-rate conversion here.
+  const usdMinorBigInt = totalMinor;
   if (usdMinorBigInt < 1n || usdMinorBigInt > 999_999_999_999n) {
-    throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The converted order total is outside the supported range.");
+    throw new PaymentServiceError("ORDER_TOTAL_UNCONFIRMED", 409, "The saved USD order total is outside the supported range.");
   }
   const usdMinor = Number(usdMinorBigInt);
-  const rateText = `${rateMicros / 1_000_000n}.${String(rateMicros % 1_000_000n).padStart(6, "0")}`;
-  const description = `Original total BDT ${formatMinorUnits(totalMinor)} (items ${formatMinorUnits(subtotalMinor)}, delivery ${formatMinorUnits(deliveryMinor)}); USD/BDT rate ${rateText}; ${itemNames.join(", ")}`.slice(0, 500);
+  const description = `JABIYEN saved item and delivery totals are treated as USD with no currency conversion; ${itemNames.join(", ")}`.slice(0, 500);
 
   const paymentRequest = await createPaymentRequest({
     project_key: "jabiyen",
@@ -534,7 +522,7 @@ export async function createJabiyenOrderCheckoutSession(input: {
 export async function getPaymentRequestStatus(paymentRequestId: string, identity: CentralIdentity) {
   const db = createPrivilegedClient();
   const { data: paymentRequest, error } = await db.from("payment_requests")
-    .select("id,project_id,external_order_reference,amount_minor,currency,status,created_at,expires_at")
+    .select("id,project_id,external_order_reference,amount_minor,currency,status,fulfillment_status,fulfilled_at,created_at,expires_at")
     .eq("id", paymentRequestId)
     .eq("user_id", identity.user.id)
     .maybeSingle();
@@ -547,6 +535,196 @@ export async function getPaymentRequestStatus(paymentRequestId: string, identity
     .limit(1);
   if (attemptsError) safeDatabaseError(attemptsError, "STATUS_ATTEMPT_LOOKUP");
   return { ...paymentRequest, latest_attempt: attempts?.[0] ?? null };
+}
+
+async function loadCentralJabiyenPayment(paymentRequestId: string) {
+  const db = createPrivilegedClient();
+  const { data: request, error: requestError } = await db.from("payment_requests")
+    .select("id,project_id,user_id,external_order_reference,amount_minor,currency,status,fulfillment_status")
+    .eq("id", paymentRequestId)
+    .maybeSingle();
+  if (requestError) safeDatabaseError(requestError, "FULFILLMENT_REQUEST_LOOKUP");
+  if (!request || !request.user_id) throw new PaymentServiceError("PAYMENT_REQUEST_NOT_FOUND", 404, "The payment request was not found.");
+  if (request.currency !== "usd" || !Number.isSafeInteger(Number(request.amount_minor)) || Number(request.amount_minor) <= 0) {
+    throw new PaymentServiceError("PAYMENT_AMOUNT_INVALID", 409, "The verified payment amount is invalid.");
+  }
+  const { data: project, error: projectError } = await db.from("platform_projects")
+    .select("project_key")
+    .eq("id", request.project_id)
+    .maybeSingle();
+  if (projectError) safeDatabaseError(projectError, "FULFILLMENT_PROJECT_LOOKUP");
+  if (project?.project_key !== "jabiyen") throw new PaymentServiceError("PAYMENT_SITE_NOT_SUPPORTED", 404, "This payment return is not available.");
+  return { db, request };
+}
+
+async function confirmJabiyenOrderFromCentralWebhook(paymentRequestId: string) {
+  const { db, request } = await loadCentralJabiyenPayment(paymentRequestId);
+  if (request.status !== "paid") throw new PaymentServiceError("PAYMENT_NOT_CONFIRMED", 409, "The central payment has not been confirmed.");
+  if (request.fulfillment_status === "fulfilled") return { fulfilled: true, alreadyFulfilled: true };
+
+  const { data: customer, error: customerError } = await db.from("payment_customers")
+    .select("email_snapshot")
+    .eq("user_id", request.user_id)
+    .maybeSingle();
+  if (customerError) safeDatabaseError(customerError, "FULFILLMENT_CUSTOMER_LOOKUP");
+  const expectedEmail = customer?.email_snapshot?.trim().toLowerCase();
+  if (!expectedEmail) throw new PaymentServiceError("ORDER_FULFILLMENT_FAILED", 503, "The order could not be updated yet.");
+
+  const jabiDb = getJabiyenAdminDatabase();
+  const { data: confirmation, error: confirmationError } = await jabiDb.rpc("confirm_jabiyen_stripe_order_from_central", {
+    p_order_number: request.external_order_reference,
+    p_expected_email: expectedEmail,
+    p_payment_request_id: request.id,
+    p_expected_amount_minor: Number(request.amount_minor),
+  });
+  if (confirmationError) {
+    console.error("[CENTRAL_PAYMENT_JABIYEN_FULFILLMENT_RPC]", confirmationError.code || "RPC_ERROR");
+    throw new PaymentServiceError("ORDER_FULFILLMENT_FAILED", 503, "The order could not be updated yet.");
+  }
+  if (!confirmation?.ok) {
+    console.error("[CENTRAL_PAYMENT_JABIYEN_FULFILLMENT_REJECTED]", confirmation?.code || "ORDER_REJECTED");
+    throw new PaymentServiceError("ORDER_FULFILLMENT_FAILED", 503, "The order could not be updated yet.");
+  }
+
+  const fulfilledAt = new Date().toISOString();
+  const { data: updated, error: updateError } = await db.from("payment_requests")
+    .update({ fulfillment_status: "fulfilled", fulfilled_at: fulfilledAt })
+    .eq("id", request.id)
+    .eq("status", "paid")
+    .select("id")
+    .maybeSingle();
+  if (updateError) safeDatabaseError(updateError, "FULFILLMENT_MARK_COMPLETE");
+  if (!updated && request.fulfillment_status !== "fulfilled") {
+    const { data: fresh, error: reloadError } = await db.from("payment_requests")
+      .select("fulfillment_status")
+      .eq("id", request.id)
+      .maybeSingle();
+    if (reloadError) safeDatabaseError(reloadError, "FULFILLMENT_STATE_RELOAD");
+    if (fresh?.fulfillment_status !== "fulfilled") throw new PaymentServiceError("ORDER_FULFILLMENT_FAILED", 503, "The order could not be updated yet.");
+  }
+  return { fulfilled: true, alreadyFulfilled: false };
+}
+
+export async function createPaymentReturnHandoff(paymentRequestId: string, identity: CentralIdentity) {
+  const db = createPrivilegedClient();
+  const { data: request, error: requestError } = await db.from("payment_requests")
+    .select("id,project_id,user_id,external_order_reference,amount_minor,currency,status,fulfillment_status")
+    .eq("id", paymentRequestId)
+    .eq("user_id", identity.user.id)
+    .maybeSingle();
+  if (requestError) safeDatabaseError(requestError, "HANDOFF_REQUEST_LOOKUP");
+  if (!request) throw new PaymentServiceError("PAYMENT_REQUEST_NOT_FOUND", 404, "The payment request was not found.");
+  if (request.status !== "paid" || request.fulfillment_status !== "fulfilled") {
+    throw new PaymentServiceError("PAYMENT_NOT_READY", 409, "The order is not ready for confirmation yet.");
+  }
+  if (request.currency !== "usd" || !Number.isSafeInteger(Number(request.amount_minor)) || Number(request.amount_minor) <= 0) {
+    throw new PaymentServiceError("PAYMENT_AMOUNT_INVALID", 409, "The verified payment amount is invalid.");
+  }
+
+  const [{ data: project, error: projectError }, { data: site, error: siteError }, { data: attempts, error: attemptsError }, { data: customer, error: customerError }] = await Promise.all([
+    db.from("platform_projects").select("project_key,allowed_origins,status").eq("id", request.project_id).maybeSingle(),
+    db.from("payment_site_settings").select("enabled,order_return_origin,order_return_path").eq("project_id", request.project_id).maybeSingle(),
+    db.from("payment_attempts").select("status,stripe_checkout_session_id").eq("payment_request_id", request.id).order("created_at", { ascending: false }).limit(1),
+    db.from("payment_customers").select("email_snapshot").eq("user_id", identity.user.id).maybeSingle(),
+  ]);
+  if (projectError) safeDatabaseError(projectError, "HANDOFF_PROJECT_LOOKUP");
+  if (siteError) safeDatabaseError(siteError, "HANDOFF_SITE_LOOKUP");
+  if (attemptsError) safeDatabaseError(attemptsError, "HANDOFF_ATTEMPT_LOOKUP");
+  if (customerError) safeDatabaseError(customerError, "HANDOFF_CUSTOMER_LOOKUP");
+  const allowedOrigins = Array.isArray(project?.allowed_origins) ? project.allowed_origins : [];
+  if (project?.project_key !== "jabiyen" || project.status !== "active" || !site?.enabled || !site.order_return_origin
+      || !site.order_return_path || !allowedOrigins.includes(site.order_return_origin)
+      || attempts?.[0]?.status !== "paid" || !attempts[0].stripe_checkout_session_id
+      || !customer?.email_snapshot || customer.email_snapshot.toLowerCase() !== identity.user.email?.toLowerCase()) {
+    throw new PaymentServiceError("PAYMENT_RETURN_NOT_CONFIGURED", 503, "The order return is not configured safely.");
+  }
+
+  const { token, tokenHash } = createPaymentReturnToken();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+  const { error: invalidateError } = await db.from("payment_return_handoffs")
+    .delete()
+    .eq("payment_request_id", request.id)
+    .is("redeemed_at", null);
+  if (invalidateError) safeDatabaseError(invalidateError, "HANDOFF_INVALIDATE_PREVIOUS");
+  const { error: insertError } = await db.from("payment_return_handoffs").insert({
+    token_hash: tokenHash,
+    payment_request_id: request.id,
+    project_id: request.project_id,
+    user_id: identity.user.id,
+    external_order_reference: request.external_order_reference,
+    expires_at: expiresAt,
+  });
+  if (insertError) safeDatabaseError(insertError, "HANDOFF_CREATE");
+
+  try {
+    return {
+      return_url: buildPaymentReturnUrl({
+        origin: site.order_return_origin,
+        pathTemplate: site.order_return_path,
+        orderNumber: request.external_order_reference,
+        token,
+      }),
+      expires_at: expiresAt,
+    };
+  } catch {
+    await db.from("payment_return_handoffs").delete().eq("token_hash", tokenHash);
+    throw new PaymentServiceError("PAYMENT_RETURN_URL_INVALID", 503, "The order return is not configured safely.");
+  }
+}
+
+export async function redeemPaymentReturnHandoff(token: string) {
+  const tokenHash = hashPaymentReturnToken(token);
+  if (!tokenHash) throw new PaymentServiceError("PAYMENT_HANDOFF_INVALID", 404, "This order return link has expired or was already used.");
+  const db = createPrivilegedClient();
+  const redeemedAt = new Date().toISOString();
+  const { data: handoff, error: redeemError } = await db.from("payment_return_handoffs")
+    .update({ redeemed_at: redeemedAt })
+    .eq("token_hash", tokenHash)
+    .is("redeemed_at", null)
+    .gt("expires_at", redeemedAt)
+    .select("payment_request_id,project_id,user_id,external_order_reference")
+    .maybeSingle();
+  if (redeemError) safeDatabaseError(redeemError, "HANDOFF_REDEEM");
+  if (!handoff) throw new PaymentServiceError("PAYMENT_HANDOFF_INVALID", 404, "This order return link has expired or was already used.");
+
+  const [{ data: request, error: requestError }, { data: project, error: projectError }, { data: customer, error: customerError }] = await Promise.all([
+    db.from("payment_requests").select("id,project_id,user_id,external_order_reference,amount_minor,currency,status,fulfillment_status").eq("id", handoff.payment_request_id).maybeSingle(),
+    db.from("platform_projects").select("project_key,status").eq("id", handoff.project_id).maybeSingle(),
+    db.from("payment_customers").select("email_snapshot").eq("user_id", handoff.user_id).maybeSingle(),
+  ]);
+  if (requestError) safeDatabaseError(requestError, "HANDOFF_PAYMENT_LOOKUP");
+  if (projectError) safeDatabaseError(projectError, "HANDOFF_PROJECT_LOOKUP");
+  if (customerError) safeDatabaseError(customerError, "HANDOFF_CUSTOMER_LOOKUP");
+  if (!request || request.project_id !== handoff.project_id || request.user_id !== handoff.user_id
+      || request.external_order_reference !== handoff.external_order_reference || request.status !== "paid"
+      || request.fulfillment_status !== "fulfilled" || request.currency !== "usd"
+      || project?.project_key !== "jabiyen" || project.status !== "active" || !customer?.email_snapshot) {
+    throw new PaymentServiceError("PAYMENT_HANDOFF_INVALID", 404, "This order return link has expired or was already used.");
+  }
+
+  const jabiDb = getJabiyenAdminDatabase();
+  const { data: orderCredential, error: orderCredentialError } = await jabiDb.from("orders")
+    .select("order_number,access_token_hash")
+    .eq("order_number", handoff.external_order_reference)
+    .maybeSingle();
+  if (orderCredentialError) safeDatabaseError(orderCredentialError, "HANDOFF_ORDER_LOOKUP");
+  if (!orderCredential || typeof orderCredential.access_token_hash !== "string") {
+    throw new PaymentServiceError("ORDER_FULFILLMENT_UNAVAILABLE", 503, "The confirmed order could not be loaded yet.");
+  }
+  const { data: order, error: orderError } = await jabiDb.rpc("get_jabiyen_public_order", {
+    p_order_number: handoff.external_order_reference,
+    p_access_token_hash: orderCredential.access_token_hash,
+  });
+  if (orderError) safeDatabaseError(orderError, "HANDOFF_ORDER_DETAILS");
+  if (!order || order.order_number !== handoff.external_order_reference || order.status !== "confirmed"
+      || order.payment?.method !== "stripe" || order.payment?.status !== "collected"
+      || order.currency !== "USD" || order.payment?.currency !== "USD"
+      || usdMajorToMinorUnits(order.total_amount) !== BigInt(Number(request.amount_minor))
+      || String(order.customer?.email ?? "").trim().toLowerCase() !== customer.email_snapshot.trim().toLowerCase()) {
+    throw new PaymentServiceError("ORDER_FULFILLMENT_UNAVAILABLE", 503, "The confirmed order could not be loaded yet.");
+  }
+  return { order };
 }
 
 function stripeWebhookSettingsError() {
@@ -601,23 +779,43 @@ export async function handleStripeWebhook(rawBody: Buffer, signature: string | n
     if (checkoutTypes.has(event.type)) {
       const session = event.data.object as Stripe.Checkout.Session;
       const { data: attempt, error: attemptError } = await db.from("payment_attempts")
-        .select("id,payment_request_id,amount_minor,currency,status")
+        .select("id,payment_request_id,amount_minor,currency,status,stripe_checkout_session_id")
         .eq("stripe_checkout_session_id", session.id)
         .maybeSingle();
       if (attemptError) safeDatabaseError(attemptError, "WEBHOOK_ATTEMPT_LOOKUP");
 
       if (attempt) {
-        if (session.amount_total !== Number(attempt.amount_minor) || session.currency !== attempt.currency) {
-          console.error("[CENTRAL_PAYMENT_WEBHOOK_TOTAL_MISMATCH]", { eventId: event.id, sessionId: session.id });
-          await db.from("payment_webhook_events").update({ status: "processed", lease_expires_at: null, processed_at: new Date().toISOString(), last_error_code: "CHECKOUT_TOTAL_MISMATCH" }).eq("event_id", event.id);
-          return { received: true, processed: true };
+        const { data: paymentRequest, error: requestError } = await db.from("payment_requests")
+          .select("id,project_id,user_id,external_order_reference,amount_minor,currency,status,fulfillment_status")
+          .eq("id", attempt.payment_request_id)
+          .maybeSingle();
+        if (requestError) safeDatabaseError(requestError, "WEBHOOK_REQUEST_LOOKUP");
+        if (!paymentRequest || !paymentRequest.user_id) {
+          throw new PaymentServiceError("WEBHOOK_PAYMENT_BINDING_INVALID", 503, "The Stripe payment could not be matched to a central payment request.");
+        }
+        const { data: project, error: projectError } = await db.from("platform_projects")
+          .select("project_key")
+          .eq("id", paymentRequest.project_id)
+          .maybeSingle();
+        if (projectError) safeDatabaseError(projectError, "WEBHOOK_PROJECT_LOOKUP");
+        if (!project) {
+          throw new PaymentServiceError("WEBHOOK_PAYMENT_BINDING_INVALID", 503, "The Stripe payment could not be matched to a central payment request.");
+        }
+        if (Number(paymentRequest.amount_minor) !== Number(attempt.amount_minor)
+            || paymentRequest.currency !== attempt.currency
+            || !checkoutSessionMatchesAttempt(session, {
+              paymentRequestId: paymentRequest.id,
+              amountMinor: Number(paymentRequest.amount_minor),
+              currency: paymentRequest.currency,
+              projectKey: project.project_key,
+              userId: paymentRequest.user_id,
+            })) {
+          console.error("[CENTRAL_PAYMENT_WEBHOOK_PROOF_MISMATCH]", { eventId: event.id, sessionId: session.id });
+          throw new PaymentServiceError("WEBHOOK_PAYMENT_PROOF_MISMATCH", 503, "The Stripe session did not match its immutable payment request.");
         }
 
-        let status: "paid" | "processing" | "failed" | "expired";
-        if (event.type === "checkout.session.expired") status = "expired";
-        else if (event.type === "checkout.session.async_payment_failed") status = "failed";
-        else if (event.type === "checkout.session.async_payment_succeeded" || session.payment_status === "paid") status = "paid";
-        else status = "processing";
+        const status = verifiedCheckoutEventStatus(event.type, session);
+        if (!status) throw new PaymentServiceError("WEBHOOK_SESSION_STATE_INVALID", 503, "The Stripe Checkout session state is invalid.");
 
         if (attempt.status !== "paid" && attempt.status !== "refunded") {
           const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null;
@@ -629,11 +827,23 @@ export async function handleStripeWebhook(rawBody: Buffer, signature: string | n
           if (updateAttemptError) safeDatabaseError(updateAttemptError, "WEBHOOK_ATTEMPT_UPDATE");
         }
         if (status === "paid" && attempt.status !== "refunded") {
-          const { error: updateRequestError } = await db.from("payment_requests").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", attempt.payment_request_id);
-          if (updateRequestError) safeDatabaseError(updateRequestError, "WEBHOOK_REQUEST_UPDATE");
-          // Each successful delivery is independently idempotent; Stripe retries can
-          // recover a temporary SMTP failure without sending duplicate confirmations.
-          await sendPaidJabiyenStripeOrderConfirmationEmailOnce(attempt.payment_request_id);
+          if (paymentRequest.status !== "pending" && paymentRequest.status !== "paid") {
+            throw new PaymentServiceError("PAYMENT_REQUEST_NOT_PAYABLE", 409, "The central payment request is no longer payable.");
+          }
+          if (paymentRequest.status !== "paid") {
+            const { error: updateRequestError } = await db.from("payment_requests").update({
+              status: "paid",
+              paid_at: new Date().toISOString(),
+              ...(project.project_key === "jabiyen" ? { fulfillment_status: "pending", fulfilled_at: null } : { fulfillment_status: "not_required", fulfilled_at: null }),
+            }).eq("id", attempt.payment_request_id).eq("status", "pending");
+            if (updateRequestError) safeDatabaseError(updateRequestError, "WEBHOOK_REQUEST_UPDATE");
+          }
+          if (project.project_key === "jabiyen") {
+            await confirmJabiyenOrderFromCentralWebhook(attempt.payment_request_id);
+            // Sending only after order fulfillment prevents an email from claiming
+            // success while the customer-visible order remains unpaid or pending.
+            await sendPaidJabiyenStripeOrderConfirmationEmailOnce(attempt.payment_request_id);
+          }
         }
       }
     }
@@ -647,7 +857,8 @@ export async function handleStripeWebhook(rawBody: Buffer, signature: string | n
     if (completeError) safeDatabaseError(completeError, "WEBHOOK_COMPLETE");
     return { received: true, processed: true };
   } catch (error) {
-    await db.from("payment_webhook_events").update({ status: "failed", lease_expires_at: null, last_error_code: "PROCESSING_FAILED" }).eq("event_id", event.id);
+    const lastErrorCode = error instanceof PaymentServiceError ? error.code : "PROCESSING_FAILED";
+    await db.from("payment_webhook_events").update({ status: "failed", lease_expires_at: null, last_error_code: lastErrorCode }).eq("event_id", event.id);
     throw error instanceof PaymentServiceError ? error : new PaymentServiceError("WEBHOOK_PROCESSING_FAILED", 503, "The Stripe event could not be processed.");
   }
 }

@@ -176,7 +176,7 @@ export async function sendJabiyenCodOrderConfirmationEmailOnce(orderNumber: stri
 export async function sendPaidJabiyenStripeOrderConfirmationEmailOnce(paymentRequestId: string) {
   const centralDb = createPrivilegedClient();
   const { data: request, error: requestError } = await centralDb.from("payment_requests")
-    .select("id,project_id,user_id,external_order_reference,amount_minor,currency,status")
+    .select("id,project_id,user_id,external_order_reference,amount_minor,currency,status,fulfillment_status")
     .eq("id", paymentRequestId)
     .maybeSingle();
   if (requestError) databaseFailure("PAID_REQUEST_LOOKUP", requestError);
@@ -189,6 +189,7 @@ export async function sendPaidJabiyenStripeOrderConfirmationEmailOnce(paymentReq
   if (projectError) databaseFailure("PROJECT_LOOKUP", projectError);
   if (customerError) databaseFailure("PAYMENT_CUSTOMER_LOOKUP", customerError);
   if (project?.project_key !== "jabiyen") return { sent: false, notApplicable: true };
+  if (request.fulfillment_status !== "fulfilled") throw new Error("STRIPE_ORDER_NOT_FULFILLED");
   if (!customer?.email_snapshot) throw new Error("STRIPE_PAYMENT_CUSTOMER_UNAVAILABLE");
   if (request.currency !== "usd" || !Number.isSafeInteger(Number(request.amount_minor)) || Number(request.amount_minor) <= 0) {
     throw new Error("STRIPE_PAYMENT_AMOUNT_INVALID");

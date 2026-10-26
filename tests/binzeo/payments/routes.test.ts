@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   consumeRateLimit: vi.fn(),
   createCheckoutSession: vi.fn(),
   createJabiyenOrderCheckoutSession: vi.fn(),
+  createPaymentReturnHandoff: vi.fn(),
   getPaymentRequestStatus: vi.fn(),
   handleStripeWebhook: vi.fn(),
 }));
@@ -17,6 +18,7 @@ vi.mock("@/binzeo/payments/service", () => ({
   },
   createCheckoutSession: mocks.createCheckoutSession,
   createJabiyenOrderCheckoutSession: mocks.createJabiyenOrderCheckoutSession,
+  createPaymentReturnHandoff: mocks.createPaymentReturnHandoff,
   getPaymentRequestStatus: mocks.getPaymentRequestStatus,
   handleStripeWebhook: mocks.handleStripeWebhook,
 }));
@@ -24,6 +26,7 @@ vi.mock("@/binzeo/payments/service", () => ({
 import { POST as createCheckout } from "@/binzeo/api/v1/payments/checkout-sessions/route";
 import { POST as createJabiyenCheckout } from "@/binzeo/api/v1/payments/jabiyen/checkout-sessions/route";
 import { GET as getStatus } from "@/binzeo/api/v1/payments/requests/[requestId]/route";
+import { POST as createReturnHandoff } from "@/binzeo/api/v1/payments/requests/[requestId]/return-handoff/route";
 import { POST as stripeWebhook } from "@/binzeo/api/v1/payments/stripe/webhook/route";
 
 const identity = {
@@ -54,6 +57,7 @@ describe("central payment route boundaries", () => {
     mocks.consumeRateLimit.mockResolvedValue({ allowed: true, remaining: 9 });
     mocks.createCheckoutSession.mockResolvedValue({ checkout_url: "https://checkout.stripe.com/c/pay_test", status: "open" });
     mocks.createJabiyenOrderCheckoutSession.mockResolvedValue({ checkout_url: "https://checkout.stripe.com/c/pay_test", status: "open" });
+    mocks.createPaymentReturnHandoff.mockResolvedValue({ return_url: "https://jabiyen-website.vercel.app/order-confirmation?order=JBY-20261023-12345678#payment_handoff=token", expires_at: "2026-10-25T00:10:00.000Z" });
     mocks.getPaymentRequestStatus.mockResolvedValue({ id: paymentRequestId, status: "pending", latest_attempt: null });
     mocks.handleStripeWebhook.mockResolvedValue({ received: true, processed: true });
   });
@@ -136,6 +140,41 @@ describe("central payment route boundaries", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.getPaymentRequestStatus).toHaveBeenCalledWith(paymentRequestId, identity);
+  });
+
+  it("issues a return URL only through the authenticated owner-bound handoff service", async () => {
+    const response = await createReturnHandoff(
+      authorizedRequest(`https://api.example/v1/payments/requests/${paymentRequestId}/return-handoff`, "POST", "{}"),
+      { params: Promise.resolve({ requestId: paymentRequestId }) },
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.success).toBe(true);
+    expect(payload.data.return_url).toContain("#payment_handoff=");
+    expect(mocks.createPaymentReturnHandoff).toHaveBeenCalledWith(paymentRequestId, identity);
+  });
+
+  it("does not issue a handoff when Central Auth rejects the owner", async () => {
+    mocks.authenticatePaymentRequest.mockResolvedValueOnce({ ok: false, status: 401, code: "INVALID_TOKEN", message: "Invalid token." });
+    const response = await createReturnHandoff(
+      authorizedRequest(`https://api.example/v1/payments/requests/${paymentRequestId}/return-handoff`, "POST", "{}"),
+      { params: Promise.resolve({ requestId: paymentRequestId }) },
+    );
+
+    expect(response.status).toBe(401);
+    expect(mocks.createPaymentReturnHandoff).not.toHaveBeenCalled();
+  });
+
+  it("does not issue a handoff before the webhook marks fulfillment complete", async () => {
+    mocks.createPaymentReturnHandoff.mockRejectedValueOnce(new (await import("@/binzeo/payments/service")).PaymentServiceError("PAYMENT_NOT_READY", 409, "The order is not ready yet."));
+    const response = await createReturnHandoff(
+      authorizedRequest(`https://api.example/v1/payments/requests/${paymentRequestId}/return-handoff`, "POST", "{}"),
+      { params: Promise.resolve({ requestId: paymentRequestId }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(mocks.createPaymentReturnHandoff).toHaveBeenCalledWith(paymentRequestId, identity);
   });
 
   it("passes the untouched webhook payload and Stripe signature to the verifier", async () => {
