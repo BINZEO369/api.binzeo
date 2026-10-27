@@ -5,7 +5,7 @@ import type { CentralIdentity } from "@/binzeo/auth/identity";
 import { createPrivilegedClient } from "@/common/database/supabase/clients";
 import { getJabiyenAdminDatabase } from "@/jabiyen/website/database";
 import { sendPaidJabiyenStripeOrderConfirmationEmailOnce } from "@/binzeo/payments/order-confirmation-email";
-import { buildPaymentReturnUrl, checkoutSessionMatchesAttempt, createPaymentReturnToken, hashPaymentReturnToken, usdMajorToMinorUnits, verifiedCheckoutEventStatus } from "@/binzeo/payments/security";
+import { buildPaymentReturnUrl, checkoutSessionMatchesAttempt, createPaymentReturnToken, hashPaymentReturnToken, USD_CHECKOUT_PRICING_OPTIONS, usdMajorToMinorUnits, verifiedCheckoutEventStatus } from "@/binzeo/payments/security";
 
 export class PaymentServiceError extends Error {
   constructor(
@@ -276,10 +276,10 @@ export async function createCheckoutSession(input: {
   if (!provider?.enabled || !site?.enabled || !site.currency) {
     throw new PaymentServiceError("PAYMENTS_NOT_ENABLED", 503, "Payments are not enabled for this site.");
   }
-  if (paymentRequest.currency !== site.currency) {
+  if (paymentRequest.currency !== "usd" || site.currency !== "usd" || provider.default_currency !== "usd") {
     throw new PaymentServiceError("CURRENCY_NOT_ALLOWED", 409, "The payment request currency does not match the site's configuration.");
   }
-  if (provider.mode === "live" && (!provider.merchant_country || !provider.default_currency)) {
+  if (provider.mode === "live" && provider.merchant_country !== "US") {
     throw new PaymentServiceError("MERCHANT_CONFIGURATION_REQUIRED", 503, "Merchant country and currency must be configured before live payments.");
   }
 
@@ -375,6 +375,7 @@ export async function createCheckoutSession(input: {
     const stripeCustomerId = await getOrCreateStripeCustomer(db, stripe, input.identity);
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      ...USD_CHECKOUT_PRICING_OPTIONS,
       client_reference_id: paymentRequest.id,
       customer: stripeCustomerId,
       line_items: lineItems.data.map((item) => ({
@@ -677,15 +678,14 @@ export async function redeemPaymentReturnHandoff(token: string) {
   const tokenHash = hashPaymentReturnToken(token);
   if (!tokenHash) throw new PaymentServiceError("PAYMENT_HANDOFF_INVALID", 404, "This order return link has expired or was already used.");
   const db = createPrivilegedClient();
-  const redeemedAt = new Date().toISOString();
-  const { data: handoff, error: redeemError } = await db.from("payment_return_handoffs")
-    .update({ redeemed_at: redeemedAt })
+  const now = new Date().toISOString();
+  const { data: handoff, error: handoffError } = await db.from("payment_return_handoffs")
+    .select("payment_request_id,project_id,user_id,external_order_reference")
     .eq("token_hash", tokenHash)
     .is("redeemed_at", null)
-    .gt("expires_at", redeemedAt)
-    .select("payment_request_id,project_id,user_id,external_order_reference")
+    .gt("expires_at", now)
     .maybeSingle();
-  if (redeemError) safeDatabaseError(redeemError, "HANDOFF_REDEEM");
+  if (handoffError) safeDatabaseError(handoffError, "HANDOFF_LOOKUP");
   if (!handoff) throw new PaymentServiceError("PAYMENT_HANDOFF_INVALID", 404, "This order return link has expired or was already used.");
 
   const [{ data: request, error: requestError }, { data: project, error: projectError }, { data: customer, error: customerError }] = await Promise.all([
@@ -724,6 +724,19 @@ export async function redeemPaymentReturnHandoff(token: string) {
       || String(order.customer?.email ?? "").trim().toLowerCase() !== customer.email_snapshot.trim().toLowerCase()) {
     throw new PaymentServiceError("ORDER_FULFILLMENT_UNAVAILABLE", 503, "The confirmed order could not be loaded yet.");
   }
+
+  // Consume only after all central and site-order checks succeed. A transient
+  // JABIYEN database failure therefore leaves the unexpired capability usable.
+  const redeemedAt = new Date().toISOString();
+  const { data: consumed, error: consumeError } = await db.from("payment_return_handoffs")
+    .update({ redeemed_at: redeemedAt })
+    .eq("token_hash", tokenHash)
+    .is("redeemed_at", null)
+    .gt("expires_at", redeemedAt)
+    .select("token_hash")
+    .maybeSingle();
+  if (consumeError) safeDatabaseError(consumeError, "HANDOFF_REDEEM");
+  if (!consumed) throw new PaymentServiceError("PAYMENT_HANDOFF_INVALID", 404, "This order return link has expired or was already used.");
   return { order };
 }
 
@@ -783,6 +796,12 @@ export async function handleStripeWebhook(rawBody: Buffer, signature: string | n
         .eq("stripe_checkout_session_id", session.id)
         .maybeSingle();
       if (attemptError) safeDatabaseError(attemptError, "WEBHOOK_ATTEMPT_LOOKUP");
+
+      if (!attempt && (session.client_reference_id || session.metadata?.payment_request_id)) {
+        // Stripe can deliver the event before createCheckoutSession persists the
+        // session ID. Fail retryably so Stripe redelivers after that write lands.
+        throw new PaymentServiceError("WEBHOOK_ATTEMPT_NOT_FOUND", 503, "The Stripe session is not linked to a central payment attempt yet.");
+      }
 
       if (attempt) {
         const { data: paymentRequest, error: requestError } = await db.from("payment_requests")

@@ -21,6 +21,10 @@ export function usdMajorToMinorUnits(value: unknown): bigint | null {
   return BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
 }
 
+export const USD_CHECKOUT_PRICING_OPTIONS = {
+  adaptive_pricing: { enabled: false },
+} as const;
+
 export function buildPaymentReturnUrl(input: {
   origin: string;
   pathTemplate: string;

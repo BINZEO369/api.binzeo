@@ -4,6 +4,7 @@ import {
   checkoutSessionMatchesAttempt,
   createPaymentReturnToken,
   hashPaymentReturnToken,
+  USD_CHECKOUT_PRICING_OPTIONS,
   usdMajorToMinorUnits,
   verifiedCheckoutEventStatus,
 } from "@/binzeo/payments/security";
@@ -31,6 +32,10 @@ const session = {
 };
 
 describe("central Stripe proof and payment return handoff security", () => {
+  it("disables Stripe Adaptive Pricing so Checkout never presents a converted local currency", () => {
+    expect(USD_CHECKOUT_PRICING_OPTIONS).toEqual({ adaptive_pricing: { enabled: false } });
+  });
+
   it.each([
     ["125", 12500n],
     ["125.00", 12500n],
